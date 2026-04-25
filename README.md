@@ -4,6 +4,13 @@
 
 正式站：[https://cht-number-picker.pages.dev](https://cht-number-picker.pages.dev)
 
+## 截圖
+
+<p align="center">
+  <img src="docs/images/desktop-home.png" alt="桌面版首頁" width="72%" />
+  <img src="docs/images/mobile-home.png" alt="手機版首頁" width="23%" />
+</p>
+
 ## 功能
 
 - 支援前四碼、不拘、後六碼、特殊號碼費、各位置不含 4。
