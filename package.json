@@ -1,0 +1,15 @@
+{
+  "name": "cht-number-picker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mobile-friendly local wrapper for the Chunghwa Telecom mobile number search page.",
+  "scripts": {
+    "start": "node server.js",
+    "prepare:pages": "cp worker.js public/_worker.js",
+    "check:cf": "npm run prepare:pages && node --check public/app.js",
+    "deploy:cf": "npm run prepare:pages && wrangler pages deploy public --project-name cht-number-picker --branch main --commit-dirty=true"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

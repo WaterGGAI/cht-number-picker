@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>中華電信門號快選</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="workspace" aria-labelledby="page-title">
+        <nav id="quick-links" class="quick-links" aria-label="選號分類"></nav>
+
+        <div class="masthead">
+          <p class="eyebrow">CHT Mobile Number</p>
+          <h1 id="page-title">門號快選</h1>
+          <a class="official-link" href="https://bms.cht.com.tw/mbms/NewApply/findAvailable.jsp" target="_blank" rel="noreferrer">官網</a>
+        </div>
+
+        <form id="search-form" class="search-panel">
+          <div class="field-grid">
+            <label class="field">
+              <span>前四碼</span>
+              <select id="prefix" name="prefix"></select>
+            </label>
+
+            <label class="field">
+              <span>查詢</span>
+              <select id="mode" name="mode">
+                <option value="all">不拘</option>
+                <option value="pattern">後六碼</option>
+                <option value="fee">特殊號碼</option>
+              </select>
+            </label>
+
+            <label class="field page-field">
+              <span>頁數</span>
+              <select id="page-limit" name="pageLimit">
+                <option value="1">1 頁 · 20 筆</option>
+                <option value="3">3 頁 · 60 筆</option>
+                <option value="5">5 頁 · 100 筆</option>
+              </select>
+            </label>
+
+            <label class="field pattern-field conditional-field" hidden>
+              <span>後六碼</span>
+              <input
+                id="pattern"
+                name="pattern"
+                inputmode="text"
+                maxlength="6"
+                placeholder="58xx58"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+              />
+            </label>
+
+            <label class="field fee-field conditional-field" hidden>
+              <span>選號費</span>
+              <select id="fee" name="fee">
+                <option value="480">480 元</option>
+                <option value="1000">1000 元</option>
+              </select>
+            </label>
+          </div>
+
+          <details id="filters-wrap" class="filters-wrap">
+            <summary class="filters-summary">
+              <span>不含 4</span>
+              <span id="filter-summary" class="filters-summary-text">進階篩選</span>
+            </summary>
+            <fieldset class="filters">
+              <div id="filter-list" class="filter-list"></div>
+            </fieldset>
+          </details>
+
+          <div class="actions">
+            <button id="submit-button" class="primary-button" type="submit">查詢門號</button>
+            <button id="clear-button" class="ghost-button" type="button">清除</button>
+          </div>
+        </form>
+
+        <section id="category-panel" class="category-panel" hidden aria-live="polite">
+          <div class="category-copy">
+            <p id="category-kicker" class="category-kicker"></p>
+            <h2 id="category-title" class="category-title"></h2>
+            <p id="category-description" class="category-description"></p>
+          </div>
+          <div class="category-actions">
+            <button id="category-refresh" class="primary-button" type="button">更新清單</button>
+            <a
+              id="category-official-link"
+              class="ghost-link-button"
+              href="https://bms.cht.com.tw/mbms/NewApply/findAvailable.jsp"
+              target="_blank"
+              rel="noreferrer"
+            >
+              官網
+            </a>
+          </div>
+          <div id="category-groups" class="category-groups" hidden></div>
+        </section>
+
+        <section id="shortlist-panel" class="shortlist-panel" aria-labelledby="shortlist-title">
+          <div class="shortlist-header">
+            <div>
+              <p class="shortlist-kicker">待選門號</p>
+              <h2 id="shortlist-title" class="shortlist-title">收藏清單</h2>
+            </div>
+            <div class="shortlist-tools">
+              <select id="shortlist-sort" class="shortlist-sort" aria-label="待選排序">
+                <option value="added">依加入</option>
+                <option value="number">依號碼</option>
+                <option value="score">依好記度</option>
+              </select>
+              <button id="shortlist-copy" class="text-button" type="button">複製全部</button>
+              <button id="shortlist-clear" class="text-button" type="button">清空</button>
+            </div>
+          </div>
+          <div id="shortlist-list" class="shortlist-list"></div>
+        </section>
+
+        <section id="status-line" class="status-line is-hidden" aria-live="polite">
+          <div>
+            <span id="status-title">準備查詢</span>
+            <strong id="status-count">0</strong>
+          </div>
+          <div class="status-actions">
+            <button id="sort-button" class="text-button" type="button">依好記度</button>
+            <div class="view-toggle" role="group" aria-label="顯示方式">
+              <button id="view-list" class="view-button" type="button" title="一排一個">1個</button>
+              <button id="view-grid" class="view-button" type="button" title="一排兩個">2個</button>
+            </div>
+          </div>
+        </section>
+
+        <section id="pager" class="pager is-hidden" aria-label="結果分頁"></section>
+
+        <section id="results" class="results" aria-label="查詢結果"></section>
+      </section>
+    </main>
+
+    <template id="result-template">
+      <article class="number-item">
+        <div>
+          <p class="number"></p>
+          <p class="number-meta"></p>
+        </div>
+        <div class="item-actions">
+          <button class="status-button" type="button" title="立即查" aria-label="立即查"></button>
+          <button class="pick-button" type="button" title="加入待選" aria-label="加入待選">☆</button>
+        </div>
+      </article>
+    </template>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

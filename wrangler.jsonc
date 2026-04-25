@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cht-number-picker",
+  "main": "./worker.js",
+  "compatibility_date": "2026-04-21",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "placement": {
+    "mode": "smart"
+  }
+}
