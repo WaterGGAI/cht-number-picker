@@ -93,6 +93,12 @@ flowchart LR
 
 - Node.js 20+
 
+安裝依賴：
+
+```bash
+npm install
+```
+
 啟動：
 
 ```bash
@@ -101,10 +107,22 @@ npm start
 
 開啟 [http://localhost:5173](http://localhost:5173)。
 
+健康檢查：
+
+```bash
+curl http://localhost:5173/api/health
+```
+
 ## 部署到 Cloudflare Pages
 
 ```bash
 npm run deploy:cf
+```
+
+部署前檢查：
+
+```bash
+npm run check:cf
 ```
 
 ## 專案結構

@@ -42,6 +42,12 @@ npm run check:cf
 
 GitHub Actions 也會跑同一組檢查，所以本機先過一遍通常最省時間。
 
+如果你只是想快速確認本機 server 有正常啟動，也可以另外打：
+
+```bash
+curl http://localhost:5173/api/health
+```
+
 如果有改 UI，請自己確認：
 
 - 手機版首屏沒有擠壓

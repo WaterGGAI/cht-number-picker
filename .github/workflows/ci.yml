@@ -26,6 +26,25 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Run Cloudflare-compatible checks
         run: npm run check:cf
+
+      - name: Start local server
+        run: nohup npm start > /tmp/cht-number-picker.log 2>&1 &
+
+      - name: Wait for health endpoint
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:5173/api/health >/tmp/cht-health.json; then
+              cat /tmp/cht-health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/cht-number-picker.log
+          exit 1

@@ -762,6 +762,14 @@ function rewriteOfficialHtml(html) {
 
 async function handleApi(request) {
   const url = new URL(request.url);
+  if (request.method === "GET" && url.pathname === "/api/health") {
+    return jsonResponse({
+      ok: true,
+      runtime: "cloudflare-worker",
+      timestamp: new Date().toISOString()
+    });
+  }
+
   if (request.method === "GET" && url.pathname === "/api/config") {
     return jsonResponse({
       prefixes: PREFIXES,

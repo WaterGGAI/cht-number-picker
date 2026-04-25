@@ -881,6 +881,15 @@ async function handleOfficialProxy(req, res) {
 }
 
 async function handleApi(req, res) {
+  if (req.method === "GET" && req.url === "/api/health") {
+    sendJson(res, 200, {
+      ok: true,
+      runtime: "node",
+      timestamp: new Date().toISOString()
+    });
+    return;
+  }
+
   if (req.method === "GET" && req.url === "/api/config") {
     sendJson(res, 200, {
       prefixes: PREFIXES,
