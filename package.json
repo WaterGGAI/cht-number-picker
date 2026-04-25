@@ -5,7 +5,7 @@
   "description": "Mobile-friendly local wrapper for the Chunghwa Telecom mobile number search page.",
   "scripts": {
     "start": "node server.js",
-    "prepare:pages": "cp worker.js public/_worker.js",
+    "prepare:pages": "node scripts/prepare-pages.mjs",
     "check:js": "node --check worker.js && node --check server.js && node --check public/app.js",
     "check:pages": "npm run prepare:pages && node --check public/_worker.js",
     "check:cf": "npm run check:js && npm run check:pages",

@@ -29,6 +29,8 @@ npm start
 - `public/index.html`: 介面結構
 - `public/app.js`: 前端查詢流程、狀態管理、分類與清單邏輯
 - `public/styles.css`: 視覺與響應式樣式
+- `lib/cht-core.cjs`: Worker / server 共用的查詢、解析與 rewrite 核心
+- `scripts/prepare-pages.mjs`: 產生 Pages 用 `_worker.js` wrapper
 - `worker.js`: Cloudflare Pages / Worker 代理邏輯
 - `server.js`: 本機開發用代理伺服器
 
@@ -86,6 +88,7 @@ curl http://localhost:5173/api/health
 除非真的有必要，否則盡量延續目前專案已經存在的做法：
 
 - 原生 HTML / CSS / JS
+- `lib/cht-core.cjs` 優先維持為 Worker / server 共用邏輯
 - 前端與 Worker 分離
 - 本機 `server.js` 與雲端 `worker.js` 行為盡量一致
 

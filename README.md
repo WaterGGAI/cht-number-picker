@@ -85,7 +85,8 @@ flowchart LR
 
 - 正式環境由 Cloudflare Pages + Worker 提供靜態頁面與代理查詢
 - 本機開發時使用 `server.js` 模擬相同流程
-- Worker / server 會處理 Big5 回應、門號解析、分類、分頁與 session 維持
+- `lib/cht-core.cjs` 集中處理 Big5 回應解析、查詢驗證、分頁與 official URL rewrite
+- Worker / server 只保留各自的 session 與 HTTP 邊界
 
 ## 本機開發
 
@@ -130,6 +131,8 @@ npm run check:cf
 - [public/index.html](public/index.html)
 - [public/app.js](public/app.js)
 - [public/styles.css](public/styles.css)
+- [lib/cht-core.cjs](lib/cht-core.cjs)
+- [scripts/prepare-pages.mjs](scripts/prepare-pages.mjs)
 - [worker.js](worker.js)
 - [server.js](server.js)
 - [wrangler.jsonc](wrangler.jsonc)
