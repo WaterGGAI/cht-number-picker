@@ -23,6 +23,10 @@
   <img src="docs/images/mobile-home.png" alt="手機版首頁" width="23%" />
 </p>
 
+<p align="center">
+  <img src="docs/images/result-search.png" alt="查詢結果頁" width="82%" />
+</p>
+
 ## 為什麼做這個
 
 官方查詢頁可以用，但在手機上操作很吃力，資訊密度也不太適合快速掃描。這個專案的目標不是取代官方流程，而是把「找門號」這段體驗整理得更順：
@@ -138,7 +142,7 @@ npm run deploy:cf
 
 ### 下一步
 
-- [ ] README 再補一張查詢結果截圖
+- [x] README 補查詢結果截圖
 - [ ] 補更完整的部署與環境說明
 - [ ] 增加更多 UI 狀態驗證與回歸檢查
 - [ ] 視需要補官方快選更多分類或排序一致性
