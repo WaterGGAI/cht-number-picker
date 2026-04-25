@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "prepare:pages": "cp worker.js public/_worker.js",
-    "check:cf": "npm run prepare:pages && node --check public/app.js",
+    "check:js": "node --check worker.js && node --check server.js && node --check public/app.js",
+    "check:cf": "npm run prepare:pages && npm run check:js && node --check public/_worker.js",
     "deploy:cf": "npm run prepare:pages && wrangler pages deploy public --project-name cht-number-picker --branch main --commit-dirty=true"
   },
   "engines": {

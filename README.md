@@ -3,6 +3,7 @@
 <p>
   <a href="https://github.com/WaterGGAI/cht-number-picker/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-16a34a"></a>
   <a href="https://cht-number-picker.pages.dev"><img alt="Live Demo" src="https://img.shields.io/badge/demo-pages.dev-0f766e"></a>
+  <a href="https://github.com/WaterGGAI/cht-number-picker/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/WaterGGAI/cht-number-picker/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D20-339933?logo=nodedotjs&logoColor=white">
   <img alt="Cloudflare Pages" src="https://img.shields.io/badge/Cloudflare-Pages-F38020?logo=cloudflare&logoColor=white">
 </p>
