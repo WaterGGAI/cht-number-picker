@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用說明
+    url: https://github.com/WaterGGAI/cht-number-picker/blob/main/README.md
+    about: 先看 README，通常能快速了解目前功能與正式站
+  - name: 開發與提交流程
+    url: https://github.com/WaterGGAI/cht-number-picker/blob/main/CONTRIBUTING.md
+    about: 想改程式或送 PR，先看這份指南
