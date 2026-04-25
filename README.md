@@ -1,26 +1,86 @@
 # 中華電信門號快選
 
-一個替中華電信門號查詢頁做的手機友善介面。它會代理官方 Big5 頁面，整理成比較好掃描、比較適合手機操作的門號清單，同時保留官方「即時狀態與申租限制」視窗。
+<p>
+  <a href="https://github.com/WaterGGAI/cht-number-picker/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-16a34a"></a>
+  <a href="https://cht-number-picker.pages.dev"><img alt="Live Demo" src="https://img.shields.io/badge/demo-pages.dev-0f766e"></a>
+  <img alt="Node.js" src="https://img.shields.io/badge/node-%3E%3D20-339933?logo=nodedotjs&logoColor=white">
+  <img alt="Cloudflare Pages" src="https://img.shields.io/badge/Cloudflare-Pages-F38020?logo=cloudflare&logoColor=white">
+</p>
+
+一個替中華電信門號查詢頁做的手機友善介面。它會代理官方 Big5 頁面，把原本偏桌機、偏舊式的查詢流程整理成比較適合手機與快速篩選的門號清單，同時保留官方「即時狀態與申租限制」視窗。
 
 正式站：[https://cht-number-picker.pages.dev](https://cht-number-picker.pages.dev)
 
-## 截圖
+## 快速 Demo
+
+- 直接使用正式站：[cht-number-picker.pages.dev](https://cht-number-picker.pages.dev)
+- 手機友善首頁：前四碼、查詢方式、頁數、進階篩選集中在首屏
+- 主題門號快選：保留官方分類，不把所有主題號碼混成一大串
+- 門號即時查：每筆結果都能開官方狀態視窗
 
 <p align="center">
   <img src="docs/images/desktop-home.png" alt="桌面版首頁" width="72%" />
   <img src="docs/images/mobile-home.png" alt="手機版首頁" width="23%" />
 </p>
 
+## 為什麼做這個
+
+官方查詢頁可以用，但在手機上操作很吃力，資訊密度也不太適合快速掃描。這個專案的目標不是取代官方流程，而是把「找門號」這段體驗整理得更順：
+
+- 更好的手機版佈局
+- 更清楚的查詢條件
+- 更好掃描的結果列表
+- 保留官方預約與即時狀態流程
+
 ## 功能
 
-- 支援前四碼、不拘、後六碼、特殊號碼費、各位置不含 4。
-- 後六碼查詢用 `x` 代表任意數字，例如 `58xx58`。
-- 4 個 `x` 會自動拆成 10 組官方允許的查詢並合併結果；5 個以上不支援。
-- 可選擇抓 1、3、5 頁官方結果，每頁 20 筆。
-- 查詢結果可切換一排 1 個 / 一排 2 個顯示方式。
-- 可依好記度或號碼排序，也可收藏、複製待選門號。
-- 主題門號保留官方分類，不會一次把所有主題號碼混在一起。
-- 每筆門號旁的放大鏡可開啟官方「號碼即時狀態與申租限制」視窗。
+### 查詢能力
+
+- 支援前四碼、不拘、後六碼、特殊號碼費、各位置不含 4
+- 後六碼查詢用 `x` 代表任意數字，例如 `58xx58`
+- 4 個 `x` 會自動拆成 10 組官方允許的查詢並合併結果
+- 5 個以上 wildcard 不支援，避免過度查詢官方站
+- 可選擇抓 1、3、5 頁官方結果，每頁 20 筆
+
+### 結果體驗
+
+- 查詢結果可切換一排 1 個 / 一排 2 個
+- 可依好記度或號碼排序
+- 可收藏待選門號並一鍵複製
+- 放大鏡按鈕可開啟官方「號碼即時狀態與申租限制」視窗
+
+### 快選與分類
+
+- 實作官方六個快選入口
+- 主題門號保留官方分類切換
+- 主題門號目前可分為：
+  `一路發`、`三星彩`、`雙雙對對`、`四星彩`、`88專區`、`長長99`、`44如意`、`步步高升`
+
+## 架構
+
+```mermaid
+flowchart LR
+  A["Browser UI<br/>public/index.html + app.js + styles.css"]
+  B["Cloudflare Pages"]
+  C["Worker Proxy<br/>worker.js"]
+  D["中華電信官方查詢頁<br/>Big5 / HTML"]
+  E["官方即時狀態視窗"]
+  F["Local Dev Server<br/>server.js"]
+
+  A --> B
+  B --> C
+  C --> D
+  C --> E
+  A -. local dev .-> F
+  F --> D
+  F --> E
+```
+
+### 核心設計
+
+- 正式環境由 Cloudflare Pages + Worker 提供靜態頁面與代理查詢
+- 本機開發時使用 `server.js` 模擬相同流程
+- Worker / server 會處理 Big5 回應、門號解析、分類、分頁與 session 維持
 
 ## 本機開發
 
@@ -44,11 +104,12 @@ npm run deploy:cf
 
 ## 專案結構
 
-- [public/index.html](/public/index.html)
-- [public/app.js](/public/app.js)
-- [public/styles.css](/public/styles.css)
-- [worker.js](/worker.js)
-- [server.js](/server.js)
+- [public/index.html](public/index.html)
+- [public/app.js](public/app.js)
+- [public/styles.css](public/styles.css)
+- [worker.js](worker.js)
+- [server.js](server.js)
+- [wrangler.jsonc](wrangler.jsonc)
 
 ## 注意
 
