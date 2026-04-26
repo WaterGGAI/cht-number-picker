@@ -135,6 +135,10 @@
                 <option value="plain">純數字</option>
                 <option value="spaced">空格分段</option>
               </select>
+              <select id="number-copy-detail" class="copy-format-select" aria-label="門號複製內容">
+                <option value="number">只要門號</option>
+                <option value="annotated">附上說明</option>
+              </select>
               <button id="shortlist-copy" class="text-button" type="button">複製全部</button>
               <button
                 id="shortlist-share"
@@ -192,13 +196,22 @@
         <p id="share-dialog-description" class="share-description"></p>
         <p id="share-dialog-meta" class="share-meta"></p>
         <div id="share-dialog-summary" class="share-summary" hidden></div>
-        <label class="field share-format-field">
-          <span>門號格式</span>
-          <select id="share-dialog-number-format" class="copy-format-select" aria-label="分享門號格式">
-            <option value="plain">純數字</option>
-            <option value="spaced">空格分段</option>
-          </select>
-        </label>
+        <div class="share-copy-options">
+          <label class="field share-format-field">
+            <span>門號格式</span>
+            <select id="share-dialog-number-format" class="copy-format-select" aria-label="分享門號格式">
+              <option value="plain">純數字</option>
+              <option value="spaced">空格分段</option>
+            </select>
+          </label>
+          <label class="field share-format-field">
+            <span>複製內容</span>
+            <select id="share-dialog-number-detail" class="copy-format-select" aria-label="分享門號內容">
+              <option value="number">只要門號</option>
+              <option value="annotated">附上說明</option>
+            </select>
+          </label>
+        </div>
 
         <div class="share-qr-frame">
           <div id="share-dialog-qr" class="share-qr" aria-live="polite">準備 QR 中...</div>

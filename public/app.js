@@ -2,6 +2,7 @@ const SHORTLIST_STORAGE_KEY = "cht-shortlist-v1";
 const DISPLAY_STORAGE_KEY = "cht-display-mode-v1";
 const SEARCH_DRAFT_STORAGE_KEY = "cht-search-draft-v1";
 const NUMBER_COPY_FORMAT_STORAGE_KEY = "cht-number-copy-format-v1";
+const NUMBER_COPY_DETAIL_STORAGE_KEY = "cht-number-copy-detail-v1";
 const CATEGORY_ALL_GROUP = "__all";
 
 const DEFAULT_EMPTY_STATE = {
@@ -30,6 +31,7 @@ const state = {
   shortlistSort: "added",
   displayMode: loadDisplayMode(),
   numberCopyFormat: loadNumberCopyFormat(),
+  numberCopyDetail: loadNumberCopyDetail(),
   categoryRows: [],
   categoryGroups: [],
   activeCategoryGroup: CATEGORY_ALL_GROUP
@@ -58,6 +60,7 @@ const categoryGroups = document.querySelector("#category-groups");
 const shortlistList = document.querySelector("#shortlist-list");
 const shortlistSortInput = document.querySelector("#shortlist-sort");
 const numberCopyFormatInput = document.querySelector("#number-copy-format");
+const numberCopyDetailInput = document.querySelector("#number-copy-detail");
 const shortlistCopyButton = document.querySelector("#shortlist-copy");
 const shortlistShareButton = document.querySelector("#shortlist-share");
 const shortlistExportButton = document.querySelector("#shortlist-export");
@@ -82,6 +85,7 @@ const shareDialogDescription = document.querySelector("#share-dialog-description
 const shareDialogMeta = document.querySelector("#share-dialog-meta");
 const shareDialogSummary = document.querySelector("#share-dialog-summary");
 const shareDialogNumberFormatInput = document.querySelector("#share-dialog-number-format");
+const shareDialogNumberDetailInput = document.querySelector("#share-dialog-number-detail");
 const shareDialogQr = document.querySelector("#share-dialog-qr");
 const shareDialogLink = document.querySelector("#share-dialog-link");
 const shareDialogCopyButton = document.querySelector("#share-dialog-copy");
@@ -115,7 +119,9 @@ const {
   normalizePattern,
   toOfficialPattern,
   normalizeNumberCopyFormat,
+  normalizeNumberCopyDetailMode,
   formatCopyNumber,
+  buildRowMetaText,
   formatNumberCopyList,
   getBatchSize: resolveBatchSize,
   getLoadedPages: resolveLoadedPages,
@@ -138,6 +144,7 @@ let activeShareDialogSvg = "";
 let activeShareDialogFileBase = "cht-share";
 let activeShareDialogPngBlobPromise = null;
 let activeShareDialogNumbers = [];
+let activeShareDialogRows = [];
 let activeShareDialogSummaryDraft = null;
 let activeShareDialogSummaryRows = [];
 
@@ -170,6 +177,14 @@ function loadNumberCopyFormat() {
 
 function saveNumberCopyFormat() {
   localStorage.setItem(NUMBER_COPY_FORMAT_STORAGE_KEY, state.numberCopyFormat);
+}
+
+function loadNumberCopyDetail() {
+  return localStorage.getItem(NUMBER_COPY_DETAIL_STORAGE_KEY) === "annotated" ? "annotated" : "number";
+}
+
+function saveNumberCopyDetail() {
+  localStorage.setItem(NUMBER_COPY_DETAIL_STORAGE_KEY, state.numberCopyDetail);
 }
 
 function loadSearchDraft() {
@@ -205,6 +220,12 @@ function syncNumberCopyFormatInputs() {
   if (shareDialogNumberFormatInput) shareDialogNumberFormatInput.value = format;
 }
 
+function syncNumberCopyDetailInputs() {
+  const detailMode = normalizeNumberCopyDetailMode(state.numberCopyDetail);
+  if (numberCopyDetailInput) numberCopyDetailInput.value = detailMode;
+  if (shareDialogNumberDetailInput) shareDialogNumberDetailInput.value = detailMode;
+}
+
 function refreshShareDialogSummary() {
   renderShareSummaryChips(
     buildShareSummaryItems(activeShareDialogSummaryDraft, activeShareDialogSummaryRows, getShareSummaryOptions())
@@ -215,6 +236,15 @@ function setNumberCopyFormat(format) {
   state.numberCopyFormat = normalizeNumberCopyFormat(format);
   saveNumberCopyFormat();
   syncNumberCopyFormatInputs();
+  if (shareDialog?.open) {
+    refreshShareDialogSummary();
+  }
+}
+
+function setNumberCopyDetail(detailMode) {
+  state.numberCopyDetail = normalizeNumberCopyDetailMode(detailMode);
+  saveNumberCopyDetail();
+  syncNumberCopyDetailInputs();
   if (shareDialog?.open) {
     refreshShareDialogSummary();
   }
@@ -407,6 +437,7 @@ function resetShareDialog() {
   activeShareDialogFileBase = "cht-share";
   activeShareDialogPngBlobPromise = null;
   activeShareDialogNumbers = [];
+  activeShareDialogRows = [];
   activeShareDialogSummaryDraft = null;
   activeShareDialogSummaryRows = [];
   shareDialogKicker.textContent = "分享連結";
@@ -429,9 +460,20 @@ function resetShareDialog() {
   shareDialogDownloadButton.textContent = "下載 QR";
   shareDialogDownloadButton.disabled = true;
   syncNumberCopyFormatInputs();
+  syncNumberCopyDetailInputs();
 }
 
-async function openShareDialog({ kicker, title, description, meta, url, numbers = [], summaryDraft = null, summaryRows = [] }) {
+async function openShareDialog({
+  kicker,
+  title,
+  description,
+  meta,
+  url,
+  numbers = [],
+  numberRows = [],
+  summaryDraft = null,
+  summaryRows = []
+}) {
   if (!shareDialog?.showModal) return false;
 
   activeShareDialogUrl = url;
@@ -439,6 +481,7 @@ async function openShareDialog({ kicker, title, description, meta, url, numbers 
   activeShareDialogFileBase = slugifyShareTitle(title);
   activeShareDialogPngBlobPromise = null;
   activeShareDialogNumbers = Array.isArray(numbers) ? numbers.map(String).filter(Boolean) : [];
+  activeShareDialogRows = normalizeShortlistRows(numberRows || []);
   activeShareDialogSummaryDraft = summaryDraft && typeof summaryDraft === "object" ? { ...summaryDraft } : null;
   activeShareDialogSummaryRows = normalizeShortlistRows(summaryRows || []);
   shareDialogKicker.textContent = kicker || "分享連結";
@@ -449,7 +492,8 @@ async function openShareDialog({ kicker, title, description, meta, url, numbers 
   shareDialogLink.value = url;
   shareDialogOpenLink.href = url;
   shareDialogQr.textContent = "產生 QR 中...";
-  shareDialogCopyNumbersButton.disabled = activeShareDialogNumbers.length === 0;
+  shareDialogCopyNumbersButton.disabled =
+    activeShareDialogRows.length === 0 && activeShareDialogNumbers.length === 0;
   shareDialogCopyNumbersButton.textContent = "複製門號";
   shareDialogCopyImageButton.disabled = true;
   shareDialogCopyImageButton.textContent = "複製 QR";
@@ -491,9 +535,14 @@ async function copyShareDialogLink() {
 }
 
 async function copyShareDialogNumbers() {
-  if (!activeShareDialogNumbers.length) return;
+  if (!activeShareDialogRows.length && !activeShareDialogNumbers.length) return;
   try {
-    await navigator.clipboard.writeText(formatNumberCopyList(activeShareDialogNumbers, state.numberCopyFormat));
+    await navigator.clipboard.writeText(
+      formatNumberCopyList(activeShareDialogRows.length ? activeShareDialogRows : activeShareDialogNumbers, {
+        numberFormat: state.numberCopyFormat,
+        detailMode: state.numberCopyDetail
+      })
+    );
     flashButtonLabel(shareDialogCopyNumbersButton, "已複製", "複製門號", 1600);
   } catch (error) {
     flashButtonLabel(shareDialogCopyNumbersButton, "失敗", "複製門號", 1600);
@@ -563,6 +612,7 @@ async function presentShare(shareData, options = {}) {
     dialogDescription,
     dialogMeta,
     dialogNumbers = [],
+    dialogNumberRows = [],
     dialogSummaryDraft = null,
     dialogSummaryRows = [],
     forceDialog = false
@@ -593,6 +643,7 @@ async function presentShare(shareData, options = {}) {
     meta: dialogMeta,
     url: shareData.url,
     numbers: dialogNumbers,
+    numberRows: dialogNumberRows,
     summaryDraft: dialogSummaryDraft,
     summaryRows: dialogSummaryRows
   });
@@ -637,7 +688,8 @@ function getSearchDraftOptions() {
 function getShareSummaryOptions() {
   return {
     filterOptions: state.config?.filters || [],
-    numberFormat: state.numberCopyFormat
+    numberFormat: state.numberCopyFormat,
+    detailMode: state.numberCopyDetail
   };
 }
 
@@ -698,11 +750,7 @@ function resetPagination() {
 }
 
 function buildRowMeta(row) {
-  const parts = [];
-  if (row.bucket) parts.push(row.bucket);
-  if (row.fee !== null) parts.push(`${row.feeLabel || "選號費"} NT ${row.fee} 元`);
-  if (row.score?.reasons?.length) parts.push(row.score.reasons.join("、"));
-  return parts.join(" · ") || "費用未標示";
+  return buildRowMetaText(row);
 }
 
 function isShortlisted(number) {
@@ -784,7 +832,10 @@ function sortedShortlist() {
 async function copyShortlist() {
   if (!state.shortlist.length) return;
 
-  const text = formatNumberCopyList(sortedShortlist(), state.numberCopyFormat);
+  const text = formatNumberCopyList(sortedShortlist(), {
+    numberFormat: state.numberCopyFormat,
+    detailMode: state.numberCopyDetail
+  });
   await navigator.clipboard.writeText(text);
   flashButtonLabel(shortlistCopyButton, "已複製", "複製全部");
 }
@@ -822,6 +873,7 @@ async function shareShortlist() {
     dialogTitle: "短版清單分享",
     dialogDescription: "桌機可以直接掃 QR，手機也能照常分享或複製。",
     dialogNumbers: shortlist.map((row) => row.number),
+    dialogNumberRows: shortlist,
     dialogSummaryDraft: null,
     dialogSummaryRows: shortlist,
     dialogMeta: `${state.shortlist.length} 筆待選 · ${shareUrl.length} 字元`,
@@ -852,6 +904,7 @@ async function shareWorkspace() {
     dialogTitle: "短版整組分享",
     dialogDescription: "會一起帶上查詢條件和收藏清單，桌機打開時可直接掃 QR。",
     dialogNumbers: shortlist.map((row) => row.number),
+    dialogNumberRows: shortlist,
     dialogSummaryDraft: draft,
     dialogSummaryRows: shortlist,
     dialogMeta: `${state.shortlist.length} 筆待選 · ${shareUrl.length} 字元`,
@@ -1672,6 +1725,9 @@ shortlistSortInput.addEventListener("change", () => {
 numberCopyFormatInput.addEventListener("change", () => {
   setNumberCopyFormat(numberCopyFormatInput.value);
 });
+numberCopyDetailInput.addEventListener("change", () => {
+  setNumberCopyDetail(numberCopyDetailInput.value);
+});
 sortButton.addEventListener("click", () => {
   state.sortByScore = !state.sortByScore;
   sortButton.textContent = state.sortByScore ? "依好記度" : "依號碼";
@@ -1699,6 +1755,9 @@ shareDialogLink.addEventListener("focus", () => {
 shareDialogNumberFormatInput.addEventListener("change", () => {
   setNumberCopyFormat(shareDialogNumberFormatInput.value);
 });
+shareDialogNumberDetailInput.addEventListener("change", () => {
+  setNumberCopyDetail(shareDialogNumberDetailInput.value);
+});
 shareDialog.addEventListener("close", resetShareDialog);
 shareDialog.addEventListener("click", (event) => {
   const bounds = shareDialog.getBoundingClientRect();
@@ -1719,6 +1778,7 @@ viewGridButton.addEventListener("click", () => {
 });
 
 syncNumberCopyFormatInputs();
+syncNumberCopyDetailInputs();
 
 loadConfig()
   .then(() => {

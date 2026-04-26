@@ -143,6 +143,10 @@ const CHTAppLogic = (() => {
     return String(format || "").trim() === "spaced" ? "spaced" : "plain";
   }
 
+  function normalizeNumberCopyDetailMode(mode) {
+    return String(mode || "").trim() === "annotated" ? "annotated" : "number";
+  }
+
   function formatCopyNumber(value, format = "plain") {
     const number = normalizeNumber(value) || String(value || "").replace(/\D/g, "");
     if (!number) return "";
@@ -152,12 +156,46 @@ const CHTAppLogic = (() => {
     return `${number.slice(0, 4)} ${number.slice(4, 7)} ${number.slice(7)}`;
   }
 
-  function formatNumberCopyList(rows = [], format = "plain") {
+  function buildRowMetaText(row, options = {}) {
+    const parts = [];
+    if (row?.bucket) parts.push(String(row.bucket).trim());
+    if (row?.fee !== null && row?.fee !== undefined && Number.isFinite(Number(row.fee))) {
+      parts.push(`${row.feeLabel || "選號費"} NT ${Number(row.fee)} 元`);
+    }
+    if (Array.isArray(row?.score?.reasons) && row.score.reasons.length) {
+      parts.push(row.score.reasons.map(String).filter(Boolean).join("、"));
+    }
+    const fallback = options.fallback === undefined ? "費用未標示" : String(options.fallback || "");
+    return parts.join(" · ") || fallback;
+  }
+
+  function normalizeNumberCopyOptions(options = "plain") {
+    if (typeof options === "string") {
+      return {
+        numberFormat: normalizeNumberCopyFormat(options),
+        detailMode: "number"
+      };
+    }
+    return {
+      numberFormat: normalizeNumberCopyFormat(options.numberFormat),
+      detailMode: normalizeNumberCopyDetailMode(options.detailMode)
+    };
+  }
+
+  function formatNumberCopyLine(row, options = "plain") {
+    const settings = normalizeNumberCopyOptions(options);
+    const value = row && typeof row === "object" ? row.number : row;
+    const number = formatCopyNumber(value, settings.numberFormat);
+    if (!number) return "";
+    if (settings.detailMode !== "annotated") return number;
+    const meta =
+      row && typeof row === "object" ? buildRowMetaText(row, { fallback: "" }) : "";
+    return meta ? `${number}｜${meta}` : number;
+  }
+
+  function formatNumberCopyList(rows = [], options = "plain") {
     return rows
-      .map((row) => {
-        if (row && typeof row === "object") return formatCopyNumber(row.number, format);
-        return formatCopyNumber(row, format);
-      })
+      .map((row) => formatNumberCopyLine(row, options))
       .filter(Boolean)
       .join("\n");
   }
@@ -350,7 +388,7 @@ const CHTAppLogic = (() => {
     if (normalizedRows.length) {
       chips.push({
         label: `${normalizedRows.length}筆待選`,
-        copyText: formatNumberCopyList(normalizedRows, options.numberFormat)
+        copyText: formatNumberCopyList(normalizedRows, options)
       });
     }
 
@@ -799,7 +837,10 @@ const CHTAppLogic = (() => {
     normalizePattern,
     toOfficialPattern,
     normalizeNumberCopyFormat,
+    normalizeNumberCopyDetailMode,
     formatCopyNumber,
+    buildRowMetaText,
+    formatNumberCopyLine,
     formatNumberCopyList,
     getBatchSize,
     getLoadedPages,

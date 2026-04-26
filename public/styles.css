@@ -564,10 +564,14 @@ input:focus {
   gap: 8px;
 }
 
+.share-copy-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .share-format-field {
-  justify-self: start;
   min-width: 0;
-  max-width: 146px;
 }
 
 .share-format-field span {
@@ -1078,6 +1082,16 @@ input:focus {
     min-height: 32px;
     max-width: 102px;
     font-size: 0.76rem;
+  }
+
+  .share-copy-options {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .share-format-field .copy-format-select {
+    max-width: none;
+    width: 100%;
   }
 
   .field-grid {
