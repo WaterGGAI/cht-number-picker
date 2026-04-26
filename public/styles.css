@@ -551,6 +551,26 @@ input:focus {
   font-weight: 760;
 }
 
+.share-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.share-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
 .share-qr-frame {
   display: grid;
   place-items: center;
@@ -1100,6 +1120,12 @@ input:focus {
   .share-description,
   .share-meta {
     font-size: 0.82rem;
+  }
+
+  .share-chip {
+    min-height: 28px;
+    padding: 0 9px;
+    font-size: 0.74rem;
   }
 
   .share-qr-frame {

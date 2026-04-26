@@ -289,6 +289,91 @@ const CHTAppLogic = (() => {
     };
   }
 
+  function buildFilterLabelMap(filters = []) {
+    const map = new Map();
+    filters.forEach((filter) => {
+      if (!filter) return;
+      if (typeof filter === "object") {
+        const value = String(filter.value || "").trim();
+        if (!value) return;
+        map.set(value, String(filter.label || filter.text || filter.value).trim());
+        return;
+      }
+      const value = String(filter).trim();
+      if (value) map.set(value, value);
+    });
+    return map;
+  }
+
+  function summarizePrefixes(rows = [], { limit = 3 } = {}) {
+    const prefixes = [];
+    const seen = new Set();
+    normalizeShortlistRows(rows).forEach((row) => {
+      const prefix = row.number.slice(0, 4);
+      if (!prefix || seen.has(prefix)) return;
+      seen.add(prefix);
+      prefixes.push(prefix);
+    });
+    const shown = prefixes.slice(0, Math.max(1, Number(limit) || 3));
+    const extra = Math.max(0, prefixes.length - shown.length);
+    return { prefixes, shown, extra };
+  }
+
+  function buildShareSummary(draft = null, rows = [], options = {}) {
+    const normalizedRows = normalizeShortlistRows(rows);
+    const chips = [];
+    const draftValue = draft && typeof draft === "object" ? draft : null;
+
+    if (normalizedRows.length) {
+      chips.push(`${normalizedRows.length}筆待選`);
+    }
+
+    const prefixSummary = summarizePrefixes(normalizedRows, options);
+    const queryPrefix = String(draftValue?.prefix || "").trim();
+    if (prefixSummary.shown.length && !(prefixSummary.prefixes.length === 1 && prefixSummary.prefixes[0] === queryPrefix)) {
+      chips.push(
+        `待選 ${prefixSummary.shown.join(" / ")}${prefixSummary.extra ? ` +${prefixSummary.extra}` : ""}`
+      );
+    }
+
+    if (!draftValue) return chips;
+
+    if (queryPrefix) {
+      chips.push(`查詢 ${queryPrefix}`);
+    }
+
+    const mode = String(draftValue.mode || "all");
+    if (mode === "pattern") {
+      const pattern = normalizePattern(draftValue.pattern);
+      if (pattern) {
+        chips.push(`後六碼 ${pattern}`);
+      }
+    } else if (mode === "fee") {
+      const fee = String(draftValue.fee || "").trim();
+      if (fee) {
+        chips.push(`特殊號碼 ${fee}元`);
+      }
+    } else {
+      chips.push("查詢 不拘");
+    }
+
+    const pageLimit = String(draftValue.pageLimit || "").trim();
+    if (pageLimit) {
+      chips.push(`${pageLimit}頁`);
+    }
+
+    const filterLabelMap = buildFilterLabelMap(options.filterOptions || options.filters || []);
+    const filters = Array.isArray(draftValue.filters) ? draftValue.filters.map(String).filter(Boolean) : [];
+    if (filters.length) {
+      const labels = filters.map((value) => filterLabelMap.get(value) || `第${value}碼不含4`);
+      const shown = labels.slice(0, 2);
+      const extra = Math.max(0, labels.length - shown.length);
+      chips.push(`${shown.join(" / ")}${extra ? ` +${extra}` : ""}`);
+    }
+
+    return chips;
+  }
+
   const SHARE_MODE_CODES = {
     all: "a",
     pattern: "p",
@@ -671,7 +756,9 @@ const CHTAppLogic = (() => {
     buildBatchSequence,
     buildSnapshot,
     restoreSnapshotState,
-    normalizeSearchDraft
+    normalizeSearchDraft,
+    summarizePrefixes,
+    buildShareSummary
   };
 })();
 

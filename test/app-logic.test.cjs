@@ -38,7 +38,9 @@ const {
   buildBatchSequence,
   buildSnapshot,
   restoreSnapshotState,
-  normalizeSearchDraft
+  normalizeSearchDraft,
+  summarizePrefixes,
+  buildShareSummary
 } = require("../public/app-logic.js");
 
 function toBase64Url(value) {
@@ -158,6 +160,58 @@ test("buildCategoryGroups counts themed buckets and unnamed rows", () => {
     { key: "步步高升", label: "步步高升", count: 1 },
     { key: "未分類", label: "未分類", count: 1 }
   ]);
+});
+
+test("share summary helpers describe shortlist prefixes and query conditions", () => {
+  const rows = [
+    { number: "0905123456" },
+    { number: "0912661188" },
+    { number: "0928123123" },
+    { number: "0937123123" }
+  ];
+
+  assert.deepEqual(summarizePrefixes(rows), {
+    prefixes: ["0905", "0912", "0928", "0937"],
+    shown: ["0905", "0912", "0928"],
+    extra: 1
+  });
+
+  assert.deepEqual(
+    buildShareSummary(
+      {
+        prefix: "0912",
+        mode: "pattern",
+        pattern: "66??88",
+        fee: "480",
+        pageLimit: "3",
+        filters: ["5", "6", "9"]
+      },
+      rows,
+      {
+        filterOptions: [
+          { value: "5", label: "第5碼不含4" },
+          { value: "6", label: "第6碼不含4" },
+          { value: "9", label: "第9碼不含4" }
+        ]
+      }
+    ),
+    ["4筆待選", "待選 0905 / 0912 / 0928 +1", "查詢 0912", "後六碼 66xx88", "3頁", "第5碼不含4 / 第6碼不含4 +1"]
+  );
+
+  assert.deepEqual(
+    buildShareSummary(
+      {
+        prefix: "0912",
+        mode: "all",
+        pageLimit: "1",
+        filters: []
+      },
+      [{ number: "0912661188" }]
+    ),
+    ["1筆待選", "查詢 0912", "查詢 不拘", "1頁"]
+  );
+
+  assert.deepEqual(buildShareSummary(null, rows), ["4筆待選", "待選 0905 / 0912 / 0928 +1"]);
 });
 
 test("pagination helpers build page ranges and pager sequence by batch size", () => {

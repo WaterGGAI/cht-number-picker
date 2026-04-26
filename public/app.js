@@ -77,6 +77,7 @@ const shareDialogKicker = document.querySelector("#share-dialog-kicker");
 const shareDialogTitle = document.querySelector("#share-dialog-title");
 const shareDialogDescription = document.querySelector("#share-dialog-description");
 const shareDialogMeta = document.querySelector("#share-dialog-meta");
+const shareDialogSummary = document.querySelector("#share-dialog-summary");
 const shareDialogQr = document.querySelector("#share-dialog-qr");
 const shareDialogLink = document.querySelector("#share-dialog-link");
 const shareDialogCopyButton = document.querySelector("#share-dialog-copy");
@@ -116,7 +117,8 @@ const {
   buildBatchSequence: resolveBatchSequence,
   buildSnapshot,
   restoreSnapshotState,
-  normalizeSearchDraft
+  normalizeSearchDraft,
+  buildShareSummary
 } = window.CHTAppLogic;
 
 const mobileMedia = window.matchMedia("(max-width: 640px)");
@@ -185,6 +187,25 @@ function flashButtonLabel(button, text, fallback, delay = 1200) {
   button._flashTimeout = setTimeout(() => {
     button.textContent = fallback;
   }, delay);
+}
+
+function renderShareSummaryChips(chips = []) {
+  const labels = Array.isArray(chips) ? chips.map(String).filter(Boolean) : [];
+  if (!labels.length) {
+    shareDialogSummary.hidden = true;
+    shareDialogSummary.replaceChildren();
+    return;
+  }
+
+  const nodes = labels.map((label) => {
+    const chip = document.createElement("span");
+    chip.className = "share-chip";
+    chip.textContent = label;
+    return chip;
+  });
+
+  shareDialogSummary.hidden = false;
+  shareDialogSummary.replaceChildren(...nodes);
 }
 
 function hasNativeShare() {
@@ -311,6 +332,7 @@ function resetShareDialog() {
   shareDialogTitle.textContent = "短版分享";
   shareDialogDescription.textContent = "";
   shareDialogMeta.textContent = "";
+  renderShareSummaryChips([]);
   shareDialogQr.textContent = "準備 QR 中...";
   shareDialogLink.value = "";
   shareDialogOpenLink.href = "/";
@@ -327,7 +349,7 @@ function resetShareDialog() {
   shareDialogDownloadButton.disabled = true;
 }
 
-async function openShareDialog({ kicker, title, description, meta, url, numbers = [] }) {
+async function openShareDialog({ kicker, title, description, meta, url, numbers = [], summaryChips = [] }) {
   if (!shareDialog?.showModal) return false;
 
   activeShareDialogUrl = url;
@@ -339,6 +361,7 @@ async function openShareDialog({ kicker, title, description, meta, url, numbers 
   shareDialogTitle.textContent = title || "短版分享";
   shareDialogDescription.textContent = description || "";
   shareDialogMeta.textContent = meta || `短版連結 · ${url.length} 字元`;
+  renderShareSummaryChips(summaryChips);
   shareDialogLink.value = url;
   shareDialogOpenLink.href = url;
   shareDialogQr.textContent = "產生 QR 中...";
@@ -456,6 +479,7 @@ async function presentShare(shareData, options = {}) {
     dialogDescription,
     dialogMeta,
     dialogNumbers = [],
+    dialogSummaryChips = [],
     forceDialog = false
   } = options;
 
@@ -483,7 +507,8 @@ async function presentShare(shareData, options = {}) {
     description: dialogDescription,
     meta: dialogMeta,
     url: shareData.url,
-    numbers: dialogNumbers
+    numbers: dialogNumbers,
+    summaryChips: dialogSummaryChips
   });
   if (opened) {
     if (button && fallbackLabel) {
@@ -520,6 +545,12 @@ function getSearchDraftOptions() {
     fees: [...feeInput.options].map((optionNode) => optionNode.value),
     pageLimits: [...pageLimitInput.options].map((optionNode) => optionNode.value),
     filters: state.config?.filters?.map((filter) => filter.value) || []
+  };
+}
+
+function getShareSummaryOptions() {
+  return {
+    filterOptions: state.config?.filters || []
   };
 }
 
@@ -692,6 +723,7 @@ async function shareShortlist() {
 
   const shortlist = sortedShortlist();
   const shareUrl = buildShortlistShareUrl(shortlist, window.location.href);
+  const summaryChips = buildShareSummary(null, shortlist, getShareSummaryOptions());
   const shareData = {
     title: "中華電信門號快選",
     text: "這是我整理的待選門號清單。",
@@ -704,6 +736,7 @@ async function shareShortlist() {
     dialogTitle: "短版清單分享",
     dialogDescription: "桌機可以直接掃 QR，手機也能照常分享或複製。",
     dialogNumbers: shortlist.map((row) => row.number),
+    dialogSummaryChips: summaryChips,
     dialogMeta: `${state.shortlist.length} 筆待選 · ${shareUrl.length} 字元`,
     forceDialog: shareUrl.length > 3200
   });
@@ -712,12 +745,14 @@ async function shareShortlist() {
 async function shareWorkspace() {
   if (!state.config) return;
   const shortlist = sortedShortlist();
+  const draft = getCurrentSearchDraft();
   const shareUrl = buildWorkspaceShareUrl(
-    getCurrentSearchDraft(),
+    draft,
     shortlist,
     window.location.href,
     getSearchDraftOptions()
   );
+  const summaryChips = buildShareSummary(draft, shortlist, getShareSummaryOptions());
 
   const shareData = {
     title: "中華電信門號快選",
@@ -731,6 +766,7 @@ async function shareWorkspace() {
     dialogTitle: "短版整組分享",
     dialogDescription: "會一起帶上查詢條件和收藏清單，桌機打開時可直接掃 QR。",
     dialogNumbers: shortlist.map((row) => row.number),
+    dialogSummaryChips: summaryChips,
     dialogMeta: `${state.shortlist.length} 筆待選 · ${shareUrl.length} 字元`,
     forceDialog: shareUrl.length > 3200
   });
