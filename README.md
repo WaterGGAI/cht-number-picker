@@ -123,6 +123,7 @@ npm run deploy:cf
 部署前檢查：
 
 ```bash
+npm test
 npm run check:cf
 ```
 

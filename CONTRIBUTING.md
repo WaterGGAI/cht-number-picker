@@ -39,6 +39,7 @@ npm start
 至少跑一次：
 
 ```bash
+npm test
 npm run check:cf
 ```
 
