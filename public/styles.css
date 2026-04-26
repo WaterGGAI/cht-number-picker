@@ -587,6 +587,11 @@ input:focus {
   gap: 10px;
 }
 
+.share-open-link {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
 .primary-button:hover,
 .ghost-button:hover,
 .ghost-link-button:hover,

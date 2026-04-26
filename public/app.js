@@ -80,6 +80,7 @@ const shareDialogMeta = document.querySelector("#share-dialog-meta");
 const shareDialogQr = document.querySelector("#share-dialog-qr");
 const shareDialogLink = document.querySelector("#share-dialog-link");
 const shareDialogCopyButton = document.querySelector("#share-dialog-copy");
+const shareDialogCopyNumbersButton = document.querySelector("#share-dialog-copy-numbers");
 const shareDialogCopyImageButton = document.querySelector("#share-dialog-copy-image");
 const shareDialogDownloadButton = document.querySelector("#share-dialog-download");
 const shareDialogOpenLink = document.querySelector("#share-dialog-open");
@@ -126,6 +127,7 @@ let activeShareDialogUrl = "";
 let activeShareDialogSvg = "";
 let activeShareDialogFileBase = "cht-share";
 let activeShareDialogPngBlobPromise = null;
+let activeShareDialogNumbers = [];
 
 function loadShortlist() {
   try {
@@ -304,6 +306,7 @@ function resetShareDialog() {
   activeShareDialogSvg = "";
   activeShareDialogFileBase = "cht-share";
   activeShareDialogPngBlobPromise = null;
+  activeShareDialogNumbers = [];
   shareDialogKicker.textContent = "分享連結";
   shareDialogTitle.textContent = "短版分享";
   shareDialogDescription.textContent = "";
@@ -313,6 +316,9 @@ function resetShareDialog() {
   shareDialogOpenLink.href = "/";
   clearTimeout(shareDialogCopyButton._flashTimeout);
   shareDialogCopyButton.textContent = "複製連結";
+  clearTimeout(shareDialogCopyNumbersButton._flashTimeout);
+  shareDialogCopyNumbersButton.textContent = "複製門號";
+  shareDialogCopyNumbersButton.disabled = true;
   clearTimeout(shareDialogCopyImageButton._flashTimeout);
   shareDialogCopyImageButton.textContent = "複製 QR";
   shareDialogCopyImageButton.disabled = true;
@@ -321,13 +327,14 @@ function resetShareDialog() {
   shareDialogDownloadButton.disabled = true;
 }
 
-async function openShareDialog({ kicker, title, description, meta, url }) {
+async function openShareDialog({ kicker, title, description, meta, url, numbers = [] }) {
   if (!shareDialog?.showModal) return false;
 
   activeShareDialogUrl = url;
   activeShareDialogSvg = "";
   activeShareDialogFileBase = slugifyShareTitle(title);
   activeShareDialogPngBlobPromise = null;
+  activeShareDialogNumbers = Array.isArray(numbers) ? numbers.map(String).filter(Boolean) : [];
   shareDialogKicker.textContent = kicker || "分享連結";
   shareDialogTitle.textContent = title || "短版分享";
   shareDialogDescription.textContent = description || "";
@@ -335,6 +342,8 @@ async function openShareDialog({ kicker, title, description, meta, url }) {
   shareDialogLink.value = url;
   shareDialogOpenLink.href = url;
   shareDialogQr.textContent = "產生 QR 中...";
+  shareDialogCopyNumbersButton.disabled = activeShareDialogNumbers.length === 0;
+  shareDialogCopyNumbersButton.textContent = "複製門號";
   shareDialogCopyImageButton.disabled = true;
   shareDialogCopyImageButton.textContent = "複製 QR";
   shareDialogDownloadButton.disabled = true;
@@ -371,6 +380,17 @@ async function copyShareDialogLink() {
   } catch (error) {
     flashButtonLabel(shareDialogCopyButton, "失敗", "複製連結", 1600);
     console.warn("Share dialog copy failed", error);
+  }
+}
+
+async function copyShareDialogNumbers() {
+  if (!activeShareDialogNumbers.length) return;
+  try {
+    await navigator.clipboard.writeText(activeShareDialogNumbers.join("\n"));
+    flashButtonLabel(shareDialogCopyNumbersButton, "已複製", "複製門號", 1600);
+  } catch (error) {
+    flashButtonLabel(shareDialogCopyNumbersButton, "失敗", "複製門號", 1600);
+    console.warn("Share dialog number copy failed", error);
   }
 }
 
@@ -435,6 +455,7 @@ async function presentShare(shareData, options = {}) {
     dialogTitle,
     dialogDescription,
     dialogMeta,
+    dialogNumbers = [],
     forceDialog = false
   } = options;
 
@@ -461,7 +482,8 @@ async function presentShare(shareData, options = {}) {
     title: dialogTitle,
     description: dialogDescription,
     meta: dialogMeta,
-    url: shareData.url
+    url: shareData.url,
+    numbers: dialogNumbers
   });
   if (opened) {
     if (button && fallbackLabel) {
@@ -668,7 +690,8 @@ function exportShortlist() {
 async function shareShortlist() {
   if (!state.shortlist.length) return;
 
-  const shareUrl = buildShortlistShareUrl(sortedShortlist(), window.location.href);
+  const shortlist = sortedShortlist();
+  const shareUrl = buildShortlistShareUrl(shortlist, window.location.href);
   const shareData = {
     title: "中華電信門號快選",
     text: "這是我整理的待選門號清單。",
@@ -680,6 +703,7 @@ async function shareShortlist() {
     dialogKicker: "待選門號",
     dialogTitle: "短版清單分享",
     dialogDescription: "桌機可以直接掃 QR，手機也能照常分享或複製。",
+    dialogNumbers: shortlist.map((row) => row.number),
     dialogMeta: `${state.shortlist.length} 筆待選 · ${shareUrl.length} 字元`,
     forceDialog: shareUrl.length > 3200
   });
@@ -687,9 +711,10 @@ async function shareShortlist() {
 
 async function shareWorkspace() {
   if (!state.config) return;
+  const shortlist = sortedShortlist();
   const shareUrl = buildWorkspaceShareUrl(
     getCurrentSearchDraft(),
-    sortedShortlist(),
+    shortlist,
     window.location.href,
     getSearchDraftOptions()
   );
@@ -705,6 +730,7 @@ async function shareWorkspace() {
     dialogKicker: "工作台分享",
     dialogTitle: "短版整組分享",
     dialogDescription: "會一起帶上查詢條件和收藏清單，桌機打開時可直接掃 QR。",
+    dialogNumbers: shortlist.map((row) => row.number),
     dialogMeta: `${state.shortlist.length} 筆待選 · ${shareUrl.length} 字元`,
     forceDialog: shareUrl.length > 3200
   });
@@ -1528,6 +1554,9 @@ sortButton.addEventListener("click", () => {
 });
 shareDialogCopyButton.addEventListener("click", () => {
   copyShareDialogLink();
+});
+shareDialogCopyNumbersButton.addEventListener("click", () => {
+  copyShareDialogNumbers();
 });
 shareDialogCopyImageButton.addEventListener("click", () => {
   copyShareDialogImage();
