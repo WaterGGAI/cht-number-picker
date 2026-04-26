@@ -1,4 +1,33 @@
 const CHTAppLogic = (() => {
+  function cloneRows(rows = []) {
+    return rows.map((row) => ({
+      ...row,
+      score: row.score
+        ? {
+            ...row.score,
+            reasons: [...(row.score.reasons || [])]
+          }
+        : null
+    }));
+  }
+
+  function clonePagination(pagination = {}) {
+    const currentPage = Number(pagination.currentPage) || 1;
+    return {
+      currentPage,
+      totalPages: Math.max(1, Number(pagination.totalPages) || 1),
+      batchSize: Math.max(1, Number(pagination.batchSize) || 1),
+      loadedPages: getLoadedPages({
+        ...pagination,
+        currentPage
+      })
+    };
+  }
+
+  function cloneCategoryGroups(groups = []) {
+    return groups.map((group) => ({ ...group }));
+  }
+
   function dedupeDisplayRows(rows) {
     const seen = new Set();
     return rows.filter((row) => {
@@ -122,7 +151,67 @@ const CHTAppLogic = (() => {
     return output;
   }
 
+  function buildSnapshot(snapshot = {}, options = {}) {
+    const defaultEmptyState = options.defaultEmptyState || { title: "", detail: "" };
+    const defaultPagination = options.defaultPagination || {
+      currentPage: 1,
+      totalPages: 1,
+      batchSize: 1,
+      loadedPages: [1]
+    };
+    const categoryAllGroup = options.categoryAllGroup || "__all";
+    const emptyState = snapshot.emptyState || defaultEmptyState;
+
+    return {
+      rows: cloneRows(snapshot.rows || []),
+      categoryRows: cloneRows(snapshot.categoryRows || []),
+      categoryGroups: cloneCategoryGroups(snapshot.categoryGroups || []),
+      activeCategoryGroup: snapshot.activeCategoryGroup || categoryAllGroup,
+      statusTitle: snapshot.statusTitle || "",
+      statusCount: Number(snapshot.statusCount) || 0,
+      visible: Boolean(snapshot.visible),
+      emptyTitle: emptyState.title || defaultEmptyState.title || "",
+      emptyDetail: emptyState.detail || defaultEmptyState.detail || "",
+      pagination: clonePagination(snapshot.pagination || defaultPagination)
+    };
+  }
+
+  function restoreSnapshotState(snapshot, options = {}) {
+    if (!snapshot) return null;
+
+    const normalized = buildSnapshot(
+      {
+        ...snapshot,
+        emptyState: {
+          title: snapshot.emptyTitle,
+          detail: snapshot.emptyDetail
+        }
+      },
+      options
+    );
+
+    return {
+      rows: normalized.rows,
+      categoryRows: normalized.categoryRows,
+      categoryGroups: normalized.categoryGroups,
+      activeCategoryGroup: normalized.activeCategoryGroup,
+      status: {
+        title: normalized.statusTitle,
+        count: normalized.statusCount,
+        visible: normalized.visible
+      },
+      emptyState: {
+        title: normalized.emptyTitle,
+        detail: normalized.emptyDetail
+      },
+      pagination: normalized.pagination
+    };
+  }
+
   return {
+    cloneRows,
+    clonePagination,
+    cloneCategoryGroups,
     dedupeDisplayRows,
     sortShortlistRows,
     sortRows,
@@ -133,7 +222,9 @@ const CHTAppLogic = (() => {
     getLoadedPages,
     getBatchPages,
     formatPageRange,
-    buildBatchSequence
+    buildBatchSequence,
+    buildSnapshot,
+    restoreSnapshotState
   };
 })();
 

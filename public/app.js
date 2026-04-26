@@ -68,6 +68,9 @@ const viewListButton = document.querySelector("#view-list");
 const viewGridButton = document.querySelector("#view-grid");
 const resultTemplate = document.querySelector("#result-template");
 const {
+  cloneRows,
+  clonePagination,
+  cloneCategoryGroups,
   dedupeDisplayRows,
   sortShortlistRows,
   sortRows: sortResultRows,
@@ -78,7 +81,9 @@ const {
   getLoadedPages: resolveLoadedPages,
   getBatchPages: resolveBatchPages,
   formatPageRange: resolvePageRange,
-  buildBatchSequence: resolveBatchSequence
+  buildBatchSequence: resolveBatchSequence,
+  buildSnapshot,
+  restoreSnapshotState
 } = window.CHTAppLogic;
 
 const mobileMedia = window.matchMedia("(max-width: 640px)");
@@ -116,31 +121,6 @@ function setDisplayMode(mode) {
   state.displayMode = mode === "grid" ? "grid" : "list";
   saveDisplayMode();
   syncDisplayMode();
-}
-
-function cloneRows(rows) {
-  return rows.map((row) => ({
-    ...row,
-    score: row.score
-      ? {
-          ...row.score,
-          reasons: [...(row.score.reasons || [])]
-        }
-      : null
-  }));
-}
-
-function clonePagination(pagination = state.pagination) {
-  return {
-    currentPage: pagination.currentPage,
-    totalPages: pagination.totalPages,
-    batchSize: pagination.batchSize || 1,
-    loadedPages: [...(pagination.loadedPages || [pagination.currentPage || 1])]
-  };
-}
-
-function cloneCategoryGroups(groups = state.categoryGroups) {
-  return groups.map((group) => ({ ...group }));
 }
 
 function getQuickLink(id) {
@@ -545,18 +525,24 @@ function renderResults() {
 }
 
 function makeSnapshot() {
-  return {
-    rows: cloneRows(state.rows),
-    categoryRows: cloneRows(state.categoryRows),
-    categoryGroups: cloneCategoryGroups(),
-    activeCategoryGroup: state.activeCategoryGroup,
-    statusTitle: statusTitle.textContent,
-    statusCount: Number(statusCount.textContent) || 0,
-    visible: !statusLine.classList.contains("is-hidden"),
-    emptyTitle: state.emptyState.title,
-    emptyDetail: state.emptyState.detail,
-    pagination: clonePagination()
-  };
+  return buildSnapshot(
+    {
+      rows: state.rows,
+      categoryRows: state.categoryRows,
+      categoryGroups: state.categoryGroups,
+      activeCategoryGroup: state.activeCategoryGroup,
+      statusTitle: statusTitle.textContent,
+      statusCount: Number(statusCount.textContent) || 0,
+      visible: !statusLine.classList.contains("is-hidden"),
+      emptyState: state.emptyState,
+      pagination: state.pagination
+    },
+    {
+      defaultEmptyState: DEFAULT_EMPTY_STATE,
+      defaultPagination: DEFAULT_PAGINATION,
+      categoryAllGroup: CATEGORY_ALL_GROUP
+    }
+  );
 }
 
 function saveSnapshot(id = state.activeQuickLink) {
@@ -647,22 +633,26 @@ function buildBatchSequence(currentStart, total) {
 }
 
 function restoreSnapshot(id) {
-  const snapshot = state.snapshots.get(id);
-  if (!snapshot) return false;
+  const restored = restoreSnapshotState(state.snapshots.get(id), {
+    defaultEmptyState: DEFAULT_EMPTY_STATE,
+    defaultPagination: DEFAULT_PAGINATION,
+    categoryAllGroup: CATEGORY_ALL_GROUP
+  });
+  if (!restored) return false;
 
-  state.rows = cloneRows(snapshot.rows);
-  state.categoryRows = cloneRows(snapshot.categoryRows || []);
-  state.categoryGroups = cloneCategoryGroups(snapshot.categoryGroups || []);
-  state.activeCategoryGroup = snapshot.activeCategoryGroup || CATEGORY_ALL_GROUP;
-  state.pagination = clonePagination(snapshot.pagination || DEFAULT_PAGINATION);
-  setStatus(snapshot.statusTitle, snapshot.statusCount);
-  setStatusVisible(snapshot.visible);
+  state.rows = restored.rows;
+  state.categoryRows = restored.categoryRows;
+  state.categoryGroups = restored.categoryGroups;
+  state.activeCategoryGroup = restored.activeCategoryGroup;
+  state.pagination = restored.pagination;
+  setStatus(restored.status.title, restored.status.count);
+  setStatusVisible(restored.status.visible);
   renderCategoryGroups();
 
   if (state.rows.length) {
     renderResults();
   } else {
-    renderEmpty(snapshot.emptyTitle, snapshot.emptyDetail);
+    renderEmpty(restored.emptyState.title, restored.emptyState.detail);
   }
 
   renderPager();
