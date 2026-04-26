@@ -54,7 +54,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (SHELL_ASSETS.includes(url.pathname)) {
-    event.respondWith(staleWhileRevalidate(event.request, SHELL_CACHE, event));
+    event.respondWith(networkFirstRequest(event.request, SHELL_CACHE));
   }
 });
 
@@ -91,4 +91,17 @@ async function staleWhileRevalidate(request, cacheName, event) {
   }
 
   return networkPromise.then((response) => response || Response.error());
+}
+
+async function networkFirstRequest(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch {
+    return (await cache.match(request)) || Response.error();
+  }
 }

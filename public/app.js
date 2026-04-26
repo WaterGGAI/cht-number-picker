@@ -67,6 +67,7 @@ const statusLine = document.querySelector("#status-line");
 const statusTitle = document.querySelector("#status-title");
 const statusCount = document.querySelector("#status-count");
 const submitButton = document.querySelector("#submit-button");
+const searchShareButton = document.querySelector("#search-share");
 const clearButton = document.querySelector("#clear-button");
 const sortButton = document.querySelector("#sort-button");
 const viewListButton = document.querySelector("#view-list");
@@ -80,6 +81,9 @@ const {
   buildShortlistExport,
   parseShortlistImport,
   mergeShortlistRows,
+  buildSearchShareUrl,
+  readSearchShareFromUrl,
+  stripSearchShareParam,
   buildShortlistShareUrl,
   readShortlistShareFromUrl,
   stripShortlistShareParam,
@@ -180,17 +184,7 @@ function getSearchDraftOptions() {
 function persistSearchDraft() {
   if (!state.config) return;
   saveSearchDraft(
-    normalizeSearchDraft(
-      {
-        prefix: prefixInput.value,
-        mode: modeInput.value,
-        pattern: patternInput.value,
-        fee: feeInput.value,
-        pageLimit: pageLimitInput.value,
-        filters: getFilters()
-      },
-      getSearchDraftOptions()
-    )
+    getCurrentSearchDraft()
   );
 }
 
@@ -205,6 +199,20 @@ function applySearchDraft() {
   form.querySelectorAll("input[name='filters']").forEach((input) => {
     input.checked = draft.filters.includes(input.value);
   });
+}
+
+function getCurrentSearchDraft() {
+  return normalizeSearchDraft(
+    {
+      prefix: prefixInput.value,
+      mode: modeInput.value,
+      pattern: patternInput.value,
+      fee: feeInput.value,
+      pageLimit: pageLimitInput.value,
+      filters: getFilters()
+    },
+    getSearchDraftOptions()
+  );
 }
 
 function option(value, label = value) {
@@ -372,6 +380,43 @@ async function shareShortlist() {
   } catch (error) {
     flashButtonLabel(shortlistShareButton, "無法分享", "分享", 1800);
     console.warn("Shortlist share copy failed", error);
+  }
+}
+
+async function shareSearchDraft() {
+  if (!state.config) return;
+  const shareUrl = buildSearchShareUrl(
+    getCurrentSearchDraft(),
+    window.location.href,
+    getSearchDraftOptions()
+  );
+
+  const shareData = {
+    title: "中華電信門號快選",
+    text: "這是我整理好的門號查詢條件。",
+    url: shareUrl
+  };
+
+  try {
+    if (typeof navigator.share === "function") {
+      await navigator.share(shareData);
+      flashButtonLabel(searchShareButton, "已分享", "分享", 1600);
+      return;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      flashButtonLabel(searchShareButton, "已取消", "分享", 1200);
+      return;
+    }
+    console.warn("Search draft share failed", error);
+  }
+
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    flashButtonLabel(searchShareButton, "已複製連結", "分享", 1800);
+  } catch (error) {
+    flashButtonLabel(searchShareButton, "無法分享", "分享", 1800);
+    console.warn("Search draft share copy failed", error);
   }
 }
 
@@ -1006,6 +1051,26 @@ function applyShortlistShareFromUrl() {
   return true;
 }
 
+function applySearchDraftShareFromUrl() {
+  const sharedDraft = readSearchShareFromUrl(window.location.href, getSearchDraftOptions());
+  if (!sharedDraft) return false;
+
+  prefixInput.value = sharedDraft.prefix;
+  modeInput.value = sharedDraft.mode;
+  patternInput.value = sharedDraft.pattern;
+  feeInput.value = sharedDraft.fee;
+  pageLimitInput.value = sharedDraft.pageLimit;
+  form.querySelectorAll("input[name='filters']").forEach((input) => {
+    input.checked = sharedDraft.filters.includes(input.value);
+  });
+
+  saveSearchDraft(sharedDraft);
+  if (window.location.search.includes("sd=")) {
+    history.replaceState({}, "", stripSearchShareParam(window.location.href));
+  }
+  return true;
+}
+
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
@@ -1106,6 +1171,9 @@ patternInput.addEventListener("input", () => {
   persistSearchDraft();
 });
 form.addEventListener("submit", search);
+searchShareButton.addEventListener("click", () => {
+  shareSearchDraft();
+});
 clearButton.addEventListener("click", clearForm);
 categoryRefreshButton.addEventListener("click", () => {
   const link = getQuickLink(state.activeQuickLink);
@@ -1156,6 +1224,7 @@ viewGridButton.addEventListener("click", () => {
 loadConfig()
   .then(() => {
     applySearchDraft();
+    const loadedSharedSearchDraft = applySearchDraftShareFromUrl();
     syncModeFields();
     updateFilterSummary();
     syncResponsiveLayout();
@@ -1165,6 +1234,9 @@ loadConfig()
     renderEmpty(DEFAULT_EMPTY_STATE.title, DEFAULT_EMPTY_STATE.detail);
     const loadedSharedShortlist = applyShortlistShareFromUrl();
     renderShortlist();
+    if (loadedSharedSearchDraft) {
+      flashButtonLabel(searchShareButton, "已載入條件", "分享", 1800);
+    }
     if (loadedSharedShortlist) {
       flashButtonLabel(shortlistShareButton, "已載入連結", "分享", 1800);
     }

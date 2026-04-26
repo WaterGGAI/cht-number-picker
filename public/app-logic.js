@@ -289,6 +289,67 @@ const CHTAppLogic = (() => {
     };
   }
 
+  function packSearchShareDraft(draft) {
+    return {
+      p: draft.prefix,
+      m: draft.mode,
+      t: draft.pattern,
+      f: draft.fee,
+      l: draft.pageLimit,
+      x: draft.filters
+    };
+  }
+
+  function unpackSearchShareDraft(draft) {
+    if (!draft || typeof draft !== "object") return {};
+    return {
+      prefix: draft.p,
+      mode: draft.m,
+      pattern: draft.t,
+      fee: draft.f,
+      pageLimit: draft.l,
+      filters: draft.x
+    };
+  }
+
+  function encodeSearchShare(draft = {}, options = {}) {
+    const normalized = normalizeSearchDraft(draft, options);
+    return encodeBase64Url(
+      JSON.stringify({
+        v: 1,
+        d: packSearchShareDraft(normalized)
+      })
+    );
+  }
+
+  function decodeSearchShare(value, options = {}) {
+    if (!value) return null;
+    try {
+      const parsed = JSON.parse(decodeBase64Url(value));
+      return normalizeSearchDraft(unpackSearchShareDraft(parsed?.d), options);
+    } catch {
+      return null;
+    }
+  }
+
+  function buildSearchShareUrl(draft = {}, currentUrl, options = {}) {
+    const url = new URL(currentUrl || "https://example.com/");
+    url.searchParams.set("sd", encodeSearchShare(draft, options));
+    url.searchParams.delete("sl");
+    return url.toString();
+  }
+
+  function readSearchShareFromUrl(currentUrl, options = {}) {
+    const url = new URL(currentUrl || "https://example.com/");
+    return decodeSearchShare(url.searchParams.get("sd"), options);
+  }
+
+  function stripSearchShareParam(currentUrl) {
+    const url = new URL(currentUrl || "https://example.com/");
+    url.searchParams.delete("sd");
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
   function buildShortlistExport(rows = [], exportedAt = new Date().toISOString()) {
     return JSON.stringify(
       {
@@ -429,6 +490,11 @@ const CHTAppLogic = (() => {
     buildShortlistExport,
     parseShortlistImport,
     mergeShortlistRows,
+    encodeSearchShare,
+    decodeSearchShare,
+    buildSearchShareUrl,
+    readSearchShareFromUrl,
+    stripSearchShareParam,
     encodeShortlistShare,
     decodeShortlistShare,
     buildShortlistShareUrl,

@@ -10,6 +10,11 @@ const {
   buildShortlistExport,
   parseShortlistImport,
   mergeShortlistRows,
+  encodeSearchShare,
+  decodeSearchShare,
+  buildSearchShareUrl,
+  readSearchShareFromUrl,
+  stripSearchShareParam,
   encodeShortlistShare,
   decodeShortlistShare,
   buildShortlistShareUrl,
@@ -352,6 +357,49 @@ test("normalizeSearchDraft keeps allowed choices and restores safe defaults", ()
       filters: []
     }
   );
+});
+
+test("search share helpers round-trip a normalized draft through URL payloads", () => {
+  const options = {
+    prefixes: ["0900", "0912"],
+    modes: ["all", "pattern", "fee"],
+    fees: ["480", "1000"],
+    pageLimits: ["1", "3", "5"],
+    filters: ["5", "6", "9"]
+  };
+  const draft = {
+    prefix: "0912",
+    mode: "pattern",
+    pattern: "66??88",
+    fee: "1000",
+    pageLimit: "3",
+    filters: ["5", "9"]
+  };
+
+  const encoded = encodeSearchShare(draft, options);
+  assert.deepEqual(decodeSearchShare(encoded, options), {
+    prefix: "0912",
+    mode: "pattern",
+    pattern: "66xx88",
+    fee: "1000",
+    pageLimit: "3",
+    filters: ["5", "9"]
+  });
+
+  const shareUrl = buildSearchShareUrl(draft, "https://cht-number-picker.pages.dev/?foo=1", options);
+  assert.match(shareUrl, /[?&]sd=/);
+  assert.equal(shareUrl.includes("sl="), false);
+  assert.deepEqual(readSearchShareFromUrl(shareUrl, options), {
+    prefix: "0912",
+    mode: "pattern",
+    pattern: "66xx88",
+    fee: "1000",
+    pageLimit: "3",
+    filters: ["5", "9"]
+  });
+  assert.equal(stripSearchShareParam(shareUrl), "/?foo=1");
+
+  assert.equal(decodeSearchShare("bad-payload", options), null);
 });
 
 test("shortlist import/export helpers support json payloads and plain text lists", () => {
