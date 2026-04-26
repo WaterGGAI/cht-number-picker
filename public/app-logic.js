@@ -147,6 +147,7 @@ const CHTAppLogic = (() => {
     const value = String(mode || "").trim();
     if (value === "annotated") return "annotated";
     if (value === "line") return "line";
+    if (value === "line-compact") return "line-compact";
     return "number";
   }
 
@@ -172,6 +173,23 @@ const CHTAppLogic = (() => {
     return parts.join(" · ") || fallback;
   }
 
+  function buildCompactRowNote(row, options = {}) {
+    const parts = [];
+    if (row?.bucket) parts.push(String(row.bucket).trim());
+    const reasons = Array.isArray(row?.score?.reasons) ? row.score.reasons.map(String).filter(Boolean) : [];
+    if (reasons.length) parts.push(reasons[0]);
+    const feeValue =
+      row?.fee !== null && row?.fee !== undefined && Number.isFinite(Number(row.fee))
+        ? Number(row.fee)
+        : null;
+    if (feeValue !== null && feeValue > 0) {
+      parts.push(`${row.feeLabel || "選號費"} ${feeValue}元`);
+    }
+    const unique = parts.filter((part, index) => part && parts.indexOf(part) === index);
+    const fallback = options.fallback === undefined ? "未標示" : String(options.fallback || "");
+    return unique.slice(0, 2).join(" · ") || fallback;
+  }
+
   function normalizeNumberCopyOptions(options = "plain") {
     if (typeof options === "string") {
       return {
@@ -194,6 +212,10 @@ const CHTAppLogic = (() => {
     const meta =
       row && typeof row === "object" ? buildRowMetaText(row, { fallback: "" }) : "";
     if (!meta) return number;
+    if (settings.detailMode === "line-compact") {
+      const compact = row && typeof row === "object" ? buildCompactRowNote(row, { fallback: "" }) : "";
+      return compact ? `${number}｜${compact}` : number;
+    }
     if (settings.detailMode === "line") {
       return `${number}\n${meta}`;
     }
@@ -848,6 +870,7 @@ const CHTAppLogic = (() => {
     normalizeNumberCopyDetailMode,
     formatCopyNumber,
     buildRowMetaText,
+    buildCompactRowNote,
     formatNumberCopyLine,
     formatNumberCopyList,
     getBatchSize,

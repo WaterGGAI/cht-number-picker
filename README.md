@@ -184,6 +184,7 @@ npm run check:cf
 - [x] 門號複製格式切換（純數字 / 空格分段）
 - [x] 門號複製內容切換（只要門號 / 附上說明）
 - [x] LINE 轉貼格式
+- [x] LINE 摘要格式
 - [x] Cloudflare Pages 正式部署
 - [x] GitHub 開源與 README 截圖
 

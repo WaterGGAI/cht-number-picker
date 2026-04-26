@@ -181,7 +181,7 @@ function saveNumberCopyFormat() {
 
 function loadNumberCopyDetail() {
   const value = localStorage.getItem(NUMBER_COPY_DETAIL_STORAGE_KEY);
-  return value === "annotated" || value === "line" ? value : "number";
+  return value === "annotated" || value === "line" || value === "line-compact" ? value : "number";
 }
 
 function saveNumberCopyDetail() {
