@@ -144,7 +144,10 @@ const CHTAppLogic = (() => {
   }
 
   function normalizeNumberCopyDetailMode(mode) {
-    return String(mode || "").trim() === "annotated" ? "annotated" : "number";
+    const value = String(mode || "").trim();
+    if (value === "annotated") return "annotated";
+    if (value === "line") return "line";
+    return "number";
   }
 
   function formatCopyNumber(value, format = "plain") {
@@ -187,17 +190,22 @@ const CHTAppLogic = (() => {
     const value = row && typeof row === "object" ? row.number : row;
     const number = formatCopyNumber(value, settings.numberFormat);
     if (!number) return "";
-    if (settings.detailMode !== "annotated") return number;
+    if (settings.detailMode === "number") return number;
     const meta =
       row && typeof row === "object" ? buildRowMetaText(row, { fallback: "" }) : "";
-    return meta ? `${number}｜${meta}` : number;
+    if (!meta) return number;
+    if (settings.detailMode === "line") {
+      return `${number}\n${meta}`;
+    }
+    return `${number}｜${meta}`;
   }
 
   function formatNumberCopyList(rows = [], options = "plain") {
+    const settings = normalizeNumberCopyOptions(options);
     return rows
-      .map((row) => formatNumberCopyLine(row, options))
+      .map((row) => formatNumberCopyLine(row, settings))
       .filter(Boolean)
-      .join("\n");
+      .join(settings.detailMode === "line" ? "\n\n" : "\n");
   }
 
   function getBatchSize(pagination = {}) {

@@ -68,6 +68,7 @@ test("number copy format helpers switch between plain and spaced output", () => 
   assert.equal(normalizeNumberCopyFormat("spaced"), "spaced");
   assert.equal(normalizeNumberCopyFormat("weird"), "plain");
   assert.equal(normalizeNumberCopyDetailMode("annotated"), "annotated");
+  assert.equal(normalizeNumberCopyDetailMode("line"), "line");
   assert.equal(normalizeNumberCopyDetailMode("other"), "number");
   assert.equal(formatCopyNumber("0905123456", "plain"), "0905123456");
   assert.equal(formatCopyNumber("0905123456", "spaced"), "0905 123 456");
@@ -111,6 +112,40 @@ test("number copy format helpers switch between plain and spaced output", () => 
       { numberFormat: "plain", detailMode: "annotated" }
     ),
     "0905123456｜一路發 · 選號費 NT 480 元 · 順子"
+  );
+  assert.equal(
+    formatNumberCopyLine(
+      {
+        number: "0905123456",
+        fee: 480,
+        feeLabel: "選號費",
+        bucket: "一路發",
+        score: { reasons: ["順子"] }
+      },
+      { numberFormat: "spaced", detailMode: "line" }
+    ),
+    "0905 123 456\n一路發 · 選號費 NT 480 元 · 順子"
+  );
+  assert.equal(
+    formatNumberCopyList(
+      [
+        {
+          number: "0905123456",
+          fee: 480,
+          feeLabel: "選號費",
+          bucket: "一路發",
+          score: { reasons: ["順子"] }
+        },
+        {
+          number: "0912661188",
+          fee: 0,
+          feeLabel: "選號費",
+          score: { reasons: ["豹子"] }
+        }
+      ],
+      { numberFormat: "spaced", detailMode: "line" }
+    ),
+    "0905 123 456\n一路發 · 選號費 NT 480 元 · 順子\n\n0912 661 188\n選號費 NT 0 元 · 豹子"
   );
 });
 
@@ -322,6 +357,30 @@ test("share summary helpers describe shortlist prefixes and query conditions", (
     {
       label: "2筆待選",
       copyText: "0905123456｜一路發 · 選號費 NT 480 元 · 順子\n0912661188｜選號費 NT 0 元 · 豹子"
+    }
+  );
+
+  assert.deepEqual(
+    buildShareSummaryItems(
+      {
+        prefix: "0912",
+        mode: "pattern",
+        pattern: "66??88",
+        pageLimit: "3",
+        filters: []
+      },
+      [
+        { number: "0905123456", fee: 480, feeLabel: "選號費", bucket: "一路發", score: { reasons: ["順子"] } },
+        { number: "0912661188", fee: 0, feeLabel: "選號費", score: { reasons: ["豹子"] } }
+      ],
+      {
+        numberFormat: "spaced",
+        detailMode: "line"
+      }
+    )[0],
+    {
+      label: "2筆待選",
+      copyText: "0905 123 456\n一路發 · 選號費 NT 480 元 · 順子\n\n0912 661 188\n選號費 NT 0 元 · 豹子"
     }
   );
 

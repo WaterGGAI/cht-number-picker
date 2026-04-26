@@ -180,7 +180,8 @@ function saveNumberCopyFormat() {
 }
 
 function loadNumberCopyDetail() {
-  return localStorage.getItem(NUMBER_COPY_DETAIL_STORAGE_KEY) === "annotated" ? "annotated" : "number";
+  const value = localStorage.getItem(NUMBER_COPY_DETAIL_STORAGE_KEY);
+  return value === "annotated" || value === "line" ? value : "number";
 }
 
 function saveNumberCopyDetail() {
