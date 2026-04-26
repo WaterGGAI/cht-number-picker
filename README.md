@@ -131,6 +131,7 @@ npm run check:cf
 
 - [public/index.html](public/index.html)
 - [public/app.js](public/app.js)
+- [public/app-logic.js](public/app-logic.js)
 - [public/styles.css](public/styles.css)
 - [lib/cht-core.cjs](lib/cht-core.cjs)
 - [scripts/prepare-pages.mjs](scripts/prepare-pages.mjs)

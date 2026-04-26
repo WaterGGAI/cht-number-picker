@@ -28,6 +28,7 @@ npm start
 
 - `public/index.html`: 介面結構
 - `public/app.js`: 前端查詢流程、狀態管理、分類與清單邏輯
+- `public/app-logic.js`: 前端共用的純排序 / 分頁 / pattern helper
 - `public/styles.css`: 視覺與響應式樣式
 - `lib/cht-core.cjs`: Worker / server 共用的查詢、解析與 rewrite 核心
 - `scripts/prepare-pages.mjs`: 產生 Pages 用 `_worker.js` wrapper

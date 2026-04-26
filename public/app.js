@@ -67,6 +67,19 @@ const sortButton = document.querySelector("#sort-button");
 const viewListButton = document.querySelector("#view-list");
 const viewGridButton = document.querySelector("#view-grid");
 const resultTemplate = document.querySelector("#result-template");
+const {
+  dedupeDisplayRows,
+  sortShortlistRows,
+  sortRows: sortResultRows,
+  buildCategoryGroups,
+  normalizePattern,
+  toOfficialPattern,
+  getBatchSize: resolveBatchSize,
+  getLoadedPages: resolveLoadedPages,
+  getBatchPages: resolveBatchPages,
+  formatPageRange: resolvePageRange,
+  buildBatchSequence: resolveBatchSequence
+} = window.CHTAppLogic;
 
 const mobileMedia = window.matchMedia("(max-width: 640px)");
 
@@ -115,15 +128,6 @@ function cloneRows(rows) {
         }
       : null
   }));
-}
-
-function dedupeDisplayRows(rows) {
-  const seen = new Set();
-  return rows.filter((row) => {
-    if (!row.number || seen.has(row.number)) return false;
-    seen.add(row.number);
-    return true;
-  });
 }
 
 function clonePagination(pagination = state.pagination) {
@@ -248,17 +252,7 @@ function renderShortlist() {
 }
 
 function sortedShortlist() {
-  const rows = [...state.shortlist];
-  if (state.shortlistSort === "number") {
-    return rows.sort((a, b) => a.number.localeCompare(b.number));
-  }
-  if (state.shortlistSort === "score") {
-    return rows.sort((a, b) => {
-      const score = (b.score?.value || 0) - (a.score?.value || 0);
-      return score || a.number.localeCompare(b.number);
-    });
-  }
-  return rows;
+  return sortShortlistRows(state.shortlist, state.shortlistSort);
 }
 
 async function copyShortlist() {
@@ -347,15 +341,6 @@ function updateFilterSummary() {
 
 function bucketKey(row) {
   return row.bucket || "未分類";
-}
-
-function buildCategoryGroups(rows) {
-  const counts = new Map();
-  rows.forEach((row) => {
-    const key = bucketKey(row);
-    counts.set(key, (counts.get(key) || 0) + 1);
-  });
-  return [...counts.entries()].map(([key, count]) => ({ key, label: key, count }));
 }
 
 function clearCategoryState() {
@@ -464,18 +449,6 @@ function syncSourceView() {
   }
 }
 
-function normalizePattern(value) {
-  return value
-    .replace(/[？?ＸｘX]/g, "x")
-    .replace(/[^\dx]/gi, "")
-    .toLowerCase()
-    .slice(0, 6);
-}
-
-function toOfficialPattern(value) {
-  return normalizePattern(value).replace(/x/g, "?");
-}
-
 function buildPayload() {
   return {
     prefix: prefixInput.value,
@@ -492,12 +465,7 @@ function formatNumber(number) {
 }
 
 function sortedRows() {
-  const rows = [...state.rows];
-  if (!state.sortByScore) return rows.sort((a, b) => a.number.localeCompare(b.number));
-  return rows.sort((a, b) => {
-    const score = (b.score?.value || 0) - (a.score?.value || 0);
-    return score || a.number.localeCompare(b.number);
-  });
+  return sortResultRows(state.rows, state.sortByScore);
 }
 
 function renderEmpty(title, detail = "") {
@@ -596,28 +564,19 @@ function saveSnapshot(id = state.activeQuickLink) {
 }
 
 function getBatchSize(pagination = state.pagination) {
-  return Math.max(1, Number(pagination.batchSize) || 1);
+  return resolveBatchSize(pagination);
 }
 
-function getLoadedPages() {
-  return [...(state.pagination.loadedPages || [state.pagination.currentPage || 1])]
-    .map((page) => Number(page))
-    .filter((page) => Number.isInteger(page) && page >= 1)
-    .sort((a, b) => a - b);
+function getLoadedPages(pagination = state.pagination) {
+  return resolveLoadedPages(pagination);
 }
 
 function getBatchPages(startPage, totalPages = state.pagination.totalPages) {
-  const batchSize = getBatchSize();
-  const start = Math.max(1, Math.min(startPage, totalPages));
-  const end = Math.min(totalPages, start + batchSize - 1);
-  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
+  return resolveBatchPages(startPage, totalPages, getBatchSize());
 }
 
 function formatPageRange(startPage, totalPages = state.pagination.totalPages) {
-  const pages = getBatchPages(startPage, totalPages);
-  const first = pages[0] || 1;
-  const last = pages[pages.length - 1] || first;
-  return first === last ? String(first) : `${first}-${last}`;
+  return resolvePageRange(startPage, totalPages, getBatchSize());
 }
 
 function renderPager() {
@@ -683,42 +642,8 @@ function renderPager() {
   pager.replaceChildren(...nodes);
 }
 
-function getBatchStarts(total = state.pagination.totalPages) {
-  const batchSize = getBatchSize();
-  return Array.from({ length: Math.ceil(total / batchSize) }, (_, index) => index * batchSize + 1);
-}
-
 function buildBatchSequence(currentStart, total) {
-  const starts = getBatchStarts(total);
-  if (starts.length <= 7) {
-    return starts;
-  }
-
-  const currentIndex = Math.max(0, starts.indexOf(currentStart));
-  const indexes = new Set([0, starts.length - 1, currentIndex - 1, currentIndex, currentIndex + 1]);
-  if (currentIndex <= 2) {
-    indexes.add(1);
-    indexes.add(2);
-    indexes.add(3);
-  }
-  if (currentIndex >= starts.length - 3) {
-    indexes.add(starts.length - 2);
-    indexes.add(starts.length - 3);
-    indexes.add(starts.length - 4);
-  }
-
-  const sorted = [...indexes]
-    .filter((index) => index >= 0 && index < starts.length)
-    .sort((a, b) => a - b);
-  const output = [];
-
-  sorted.forEach((batchIndex, index) => {
-    const previous = sorted[index - 1];
-    if (previous !== undefined && batchIndex - previous > 1) output.push("...");
-    output.push(starts[batchIndex]);
-  });
-
-  return output;
+  return resolveBatchSequence(currentStart, total, getBatchSize());
 }
 
 function restoreSnapshot(id) {
