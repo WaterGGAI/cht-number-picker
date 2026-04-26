@@ -118,6 +118,7 @@ const {
   buildSnapshot,
   restoreSnapshotState,
   normalizeSearchDraft,
+  buildShareSummaryItems,
   buildShareSummary
 } = window.CHTAppLogic;
 
@@ -189,18 +190,58 @@ function flashButtonLabel(button, text, fallback, delay = 1200) {
   }, delay);
 }
 
+async function copyShareSummaryChip(button) {
+  const copyText = String(button?.dataset.copyText || "").trim();
+  const label = String(button?.dataset.label || "").trim();
+  if (!copyText || !button) return;
+  try {
+    await navigator.clipboard.writeText(copyText);
+    button.textContent = "已複製";
+    clearTimeout(button._flashTimeout);
+    button._flashTimeout = setTimeout(() => {
+      button.textContent = label;
+    }, 1400);
+  } catch (error) {
+    button.textContent = "失敗";
+    clearTimeout(button._flashTimeout);
+    button._flashTimeout = setTimeout(() => {
+      button.textContent = label;
+    }, 1400);
+    console.warn("Share summary chip copy failed", error);
+  }
+}
+
 function renderShareSummaryChips(chips = []) {
-  const labels = Array.isArray(chips) ? chips.map(String).filter(Boolean) : [];
-  if (!labels.length) {
+  const items = Array.isArray(chips)
+    ? chips
+        .map((chip) =>
+          typeof chip === "string"
+            ? { label: chip, copyText: chip }
+            : {
+                label: String(chip?.label || "").trim(),
+                copyText: String(chip?.copyText || chip?.label || "").trim()
+              }
+        )
+        .filter((chip) => chip.label)
+    : [];
+  if (!items.length) {
     shareDialogSummary.hidden = true;
     shareDialogSummary.replaceChildren();
     return;
   }
 
-  const nodes = labels.map((label) => {
-    const chip = document.createElement("span");
+  const nodes = items.map((item) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
     chip.className = "share-chip";
-    chip.textContent = label;
+    chip.textContent = item.label;
+    chip.dataset.label = item.label;
+    chip.dataset.copyText = item.copyText;
+    chip.title = `複製 ${item.label}`;
+    chip.setAttribute("aria-label", `複製 ${item.label}`);
+    chip.addEventListener("click", () => {
+      copyShareSummaryChip(chip);
+    });
     return chip;
   });
 
@@ -723,7 +764,7 @@ async function shareShortlist() {
 
   const shortlist = sortedShortlist();
   const shareUrl = buildShortlistShareUrl(shortlist, window.location.href);
-  const summaryChips = buildShareSummary(null, shortlist, getShareSummaryOptions());
+  const summaryChips = buildShareSummaryItems(null, shortlist, getShareSummaryOptions());
   const shareData = {
     title: "中華電信門號快選",
     text: "這是我整理的待選門號清單。",
@@ -752,7 +793,7 @@ async function shareWorkspace() {
     window.location.href,
     getSearchDraftOptions()
   );
-  const summaryChips = buildShareSummary(draft, shortlist, getShareSummaryOptions());
+  const summaryChips = buildShareSummaryItems(draft, shortlist, getShareSummaryOptions());
 
   const shareData = {
     title: "中華電信門號快選",

@@ -560,6 +560,7 @@ input:focus {
 .share-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   min-height: 30px;
   padding: 0 10px;
   border: 1px solid var(--line);
@@ -569,6 +570,18 @@ input:focus {
   font-size: 0.8rem;
   font-weight: 760;
   white-space: nowrap;
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease,
+    border-color 160ms ease;
+}
+
+.share-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(0, 133, 111, 0.34);
+  background: var(--accent-soft);
+  color: var(--accent-dark);
 }
 
 .share-qr-frame {

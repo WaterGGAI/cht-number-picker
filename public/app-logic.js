@@ -319,47 +319,66 @@ const CHTAppLogic = (() => {
     return { prefixes, shown, extra };
   }
 
-  function buildShareSummary(draft = null, rows = [], options = {}) {
+  function buildShareSummaryItems(draft = null, rows = [], options = {}) {
     const normalizedRows = normalizeShortlistRows(rows);
     const chips = [];
     const draftValue = draft && typeof draft === "object" ? draft : null;
 
     if (normalizedRows.length) {
-      chips.push(`${normalizedRows.length}筆待選`);
+      chips.push({
+        label: `${normalizedRows.length}筆待選`,
+        copyText: normalizedRows.map((row) => row.number).join("\n")
+      });
     }
 
     const prefixSummary = summarizePrefixes(normalizedRows, options);
     const queryPrefix = String(draftValue?.prefix || "").trim();
     if (prefixSummary.shown.length && !(prefixSummary.prefixes.length === 1 && prefixSummary.prefixes[0] === queryPrefix)) {
-      chips.push(
-        `待選 ${prefixSummary.shown.join(" / ")}${prefixSummary.extra ? ` +${prefixSummary.extra}` : ""}`
-      );
+      chips.push({
+        label: `待選 ${prefixSummary.shown.join(" / ")}${prefixSummary.extra ? ` +${prefixSummary.extra}` : ""}`,
+        copyText: prefixSummary.prefixes.join("\n")
+      });
     }
 
     if (!draftValue) return chips;
 
     if (queryPrefix) {
-      chips.push(`查詢 ${queryPrefix}`);
+      chips.push({
+        label: `查詢 ${queryPrefix}`,
+        copyText: queryPrefix
+      });
     }
 
     const mode = String(draftValue.mode || "all");
     if (mode === "pattern") {
       const pattern = normalizePattern(draftValue.pattern);
       if (pattern) {
-        chips.push(`後六碼 ${pattern}`);
+        chips.push({
+          label: `後六碼 ${pattern}`,
+          copyText: pattern
+        });
       }
     } else if (mode === "fee") {
       const fee = String(draftValue.fee || "").trim();
       if (fee) {
-        chips.push(`特殊號碼 ${fee}元`);
+        chips.push({
+          label: `特殊號碼 ${fee}元`,
+          copyText: fee
+        });
       }
     } else {
-      chips.push("查詢 不拘");
+      chips.push({
+        label: "查詢 不拘",
+        copyText: "不拘"
+      });
     }
 
     const pageLimit = String(draftValue.pageLimit || "").trim();
     if (pageLimit) {
-      chips.push(`${pageLimit}頁`);
+      chips.push({
+        label: `${pageLimit}頁`,
+        copyText: pageLimit
+      });
     }
 
     const filterLabelMap = buildFilterLabelMap(options.filterOptions || options.filters || []);
@@ -368,10 +387,17 @@ const CHTAppLogic = (() => {
       const labels = filters.map((value) => filterLabelMap.get(value) || `第${value}碼不含4`);
       const shown = labels.slice(0, 2);
       const extra = Math.max(0, labels.length - shown.length);
-      chips.push(`${shown.join(" / ")}${extra ? ` +${extra}` : ""}`);
+      chips.push({
+        label: `${shown.join(" / ")}${extra ? ` +${extra}` : ""}`,
+        copyText: labels.join("\n")
+      });
     }
 
     return chips;
+  }
+
+  function buildShareSummary(draft = null, rows = [], options = {}) {
+    return buildShareSummaryItems(draft, rows, options).map((item) => item.label);
   }
 
   const SHARE_MODE_CODES = {
@@ -758,6 +784,7 @@ const CHTAppLogic = (() => {
     restoreSnapshotState,
     normalizeSearchDraft,
     summarizePrefixes,
+    buildShareSummaryItems,
     buildShareSummary
   };
 })();

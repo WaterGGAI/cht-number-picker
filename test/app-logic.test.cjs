@@ -40,6 +40,7 @@ const {
   restoreSnapshotState,
   normalizeSearchDraft,
   summarizePrefixes,
+  buildShareSummaryItems,
   buildShareSummary
 } = require("../public/app-logic.js");
 
@@ -196,6 +197,35 @@ test("share summary helpers describe shortlist prefixes and query conditions", (
       }
     ),
     ["4筆待選", "待選 0905 / 0912 / 0928 +1", "查詢 0912", "後六碼 66xx88", "3頁", "第5碼不含4 / 第6碼不含4 +1"]
+  );
+
+  assert.deepEqual(
+    buildShareSummaryItems(
+      {
+        prefix: "0912",
+        mode: "pattern",
+        pattern: "66??88",
+        fee: "480",
+        pageLimit: "3",
+        filters: ["5", "6", "9"]
+      },
+      rows,
+      {
+        filterOptions: [
+          { value: "5", label: "第5碼不含4" },
+          { value: "6", label: "第6碼不含4" },
+          { value: "9", label: "第9碼不含4" }
+        ]
+      }
+    ),
+    [
+      { label: "4筆待選", copyText: "0905123456\n0912661188\n0928123123\n0937123123" },
+      { label: "待選 0905 / 0912 / 0928 +1", copyText: "0905\n0912\n0928\n0937" },
+      { label: "查詢 0912", copyText: "0912" },
+      { label: "後六碼 66xx88", copyText: "66xx88" },
+      { label: "3頁", copyText: "3" },
+      { label: "第5碼不含4 / 第6碼不含4 +1", copyText: "第5碼不含4\n第6碼不含4\n第9碼不含4" }
+    ]
   );
 
   assert.deepEqual(
