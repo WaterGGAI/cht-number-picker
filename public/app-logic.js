@@ -289,18 +289,58 @@ const CHTAppLogic = (() => {
     };
   }
 
+  const SHARE_MODE_CODES = {
+    all: "a",
+    pattern: "p",
+    fee: "f"
+  };
+
+  const SHARE_CODE_MODES = {
+    a: "all",
+    p: "pattern",
+    f: "fee"
+  };
+
+  function trimTrailingEmpty(values = []) {
+    const output = [...values];
+    while (output.length) {
+      const last = output[output.length - 1];
+      if (last === undefined || last === null || last === "") {
+        output.pop();
+        continue;
+      }
+      break;
+    }
+    return output;
+  }
+
   function packSearchShareDraft(draft) {
-    return {
-      p: draft.prefix,
-      m: draft.mode,
-      t: draft.pattern,
-      f: draft.fee,
-      l: draft.pageLimit,
-      x: draft.filters
-    };
+    return trimTrailingEmpty([
+      draft.prefix,
+      SHARE_MODE_CODES[draft.mode] || draft.mode,
+      draft.pattern,
+      draft.fee,
+      draft.pageLimit,
+      Array.isArray(draft.filters) ? draft.filters.join("") : ""
+    ]);
   }
 
   function unpackSearchShareDraft(draft) {
+    if (Array.isArray(draft)) {
+      return {
+        prefix: draft[0],
+        mode: SHARE_CODE_MODES[draft[1]] || draft[1],
+        pattern: draft[2],
+        fee: draft[3],
+        pageLimit: draft[4],
+        filters:
+          typeof draft[5] === "string"
+            ? draft[5].split("").filter(Boolean)
+            : Array.isArray(draft[5])
+              ? draft[5]
+              : []
+      };
+    }
     if (!draft || typeof draft !== "object") return {};
     return {
       prefix: draft.p,
@@ -316,7 +356,7 @@ const CHTAppLogic = (() => {
     const normalized = normalizeSearchDraft(draft, options);
     return encodeBase64Url(
       JSON.stringify({
-        v: 1,
+        v: 2,
         d: packSearchShareDraft(normalized)
       })
     );
@@ -335,6 +375,7 @@ const CHTAppLogic = (() => {
   function buildSearchShareUrl(draft = {}, currentUrl, options = {}) {
     const url = new URL(currentUrl || "https://example.com/");
     url.searchParams.set("sd", encodeSearchShare(draft, options));
+    url.searchParams.delete("ws");
     url.searchParams.delete("sl");
     return url.toString();
   }
@@ -355,7 +396,7 @@ const CHTAppLogic = (() => {
     const normalizedRows = normalizeShortlistRows(rows);
     return encodeBase64Url(
       JSON.stringify({
-        v: 1,
+        v: 2,
         d: packSearchShareDraft(normalizedDraft),
         r: normalizedRows.map((row) => packShortlistShareRow(row))
       })
@@ -461,18 +502,80 @@ const CHTAppLogic = (() => {
     return new TextDecoder().decode(bytes);
   }
 
+  function buildSharedStatusUrl(token, region = "null", officialPrefix = "/official") {
+    if (!token) return null;
+    const params = new URLSearchParams();
+    params.set("telnum", token);
+    params.set("region", region || "null");
+    params.set("t", String(Date.now()));
+    return `${officialPrefix}/mbms/NewApply/findAvailableReal.jsp?${params.toString()}`;
+  }
+
+  function parseSharedStatusUrl(statusUrl) {
+    if (typeof statusUrl !== "string" || !statusUrl.trim()) return null;
+    try {
+      const url = new URL(statusUrl, "https://example.com/");
+      if (!url.pathname.endsWith("/findAvailableReal.jsp")) return null;
+      const token = url.searchParams.get("telnum");
+      if (!token) return null;
+      return {
+        token,
+        region: url.searchParams.get("region") || "null"
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function packStatusShareValue(statusUrl) {
+    const parsed = parseSharedStatusUrl(statusUrl);
+    if (parsed) {
+      return parsed.region && parsed.region !== "null" ? [parsed.token, parsed.region] : parsed.token;
+    }
+    return typeof statusUrl === "string" && statusUrl.trim() ? `!${statusUrl.trim()}` : "";
+  }
+
+  function unpackStatusShareValue(value, officialPrefix = "/official") {
+    if (Array.isArray(value) && value[0]) {
+      return buildSharedStatusUrl(value[0], value[1] || "null", officialPrefix);
+    }
+    if (typeof value === "string" && value.startsWith("!")) {
+      return value.slice(1) || null;
+    }
+    if (typeof value === "string" && value) {
+      return buildSharedStatusUrl(value, "null", officialPrefix);
+    }
+    return null;
+  }
+
   function packShortlistShareRow(row) {
-    return {
-      n: row.number,
-      f: row.fee,
-      l: row.feeLabel,
-      b: row.bucket,
-      s: row.score ? [row.score.value || 0, row.score.reasons || []] : null,
-      u: row.statusUrl
-    };
+    return trimTrailingEmpty([
+      row.number,
+      row.fee,
+      row.bucket || "",
+      row.score?.value ?? "",
+      packStatusShareValue(row.statusUrl)
+    ]);
   }
 
   function unpackShortlistShareRow(row) {
+    if (Array.isArray(row)) {
+      const feeValue = row[1] === "" || row[1] === undefined || row[1] === null ? null : Number(row[1]);
+      const scoreValue = row[3] === "" || row[3] === undefined || row[3] === null ? null : Number(row[3]);
+      return {
+        number: row[0],
+        fee: Number.isFinite(feeValue) ? feeValue : null,
+        feeLabel: Number.isFinite(feeValue) ? "選號費" : null,
+        bucket: typeof row[2] === "string" && row[2] ? row[2] : null,
+        score: Number.isFinite(scoreValue)
+          ? {
+              value: scoreValue,
+              reasons: []
+            }
+          : null,
+        statusUrl: unpackStatusShareValue(row[4])
+      };
+    }
     if (!row || typeof row !== "object") return row;
     return {
       number: row.n,
@@ -491,7 +594,7 @@ const CHTAppLogic = (() => {
 
   function encodeShortlistShare(rows = []) {
     const payload = {
-      v: 1,
+      v: 2,
       r: normalizeShortlistRows(rows).map((row) => packShortlistShareRow(row))
     };
     return encodeBase64Url(JSON.stringify(payload));
@@ -515,6 +618,8 @@ const CHTAppLogic = (() => {
   function buildShortlistShareUrl(rows = [], currentUrl) {
     const url = new URL(currentUrl || "https://example.com/");
     url.searchParams.set("sl", encodeShortlistShare(rows));
+    url.searchParams.delete("ws");
+    url.searchParams.delete("sd");
     return url.toString();
   }
 

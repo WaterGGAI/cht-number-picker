@@ -41,6 +41,14 @@ const {
   normalizeSearchDraft
 } = require("../public/app-logic.js");
 
+function toBase64Url(value) {
+  return Buffer.from(String(value), "utf8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/g, "");
+}
+
 test("normalizePattern and toOfficialPattern keep mobile-friendly x input stable", () => {
   assert.equal(normalizePattern("58??58"), "58xx58");
   assert.equal(normalizePattern(" 58Ｘx5?8abc "), "58xx5x");
@@ -391,8 +399,13 @@ test("search share helpers round-trip a normalized draft through URL payloads", 
     filters: ["5", "9"]
   });
 
-  const shareUrl = buildSearchShareUrl(draft, "https://cht-number-picker.pages.dev/?foo=1", options);
+  const shareUrl = buildSearchShareUrl(
+    draft,
+    "https://cht-number-picker.pages.dev/?foo=1&ws=old&sl=old",
+    options
+  );
   assert.match(shareUrl, /[?&]sd=/);
+  assert.equal(shareUrl.includes("ws="), false);
   assert.equal(shareUrl.includes("sl="), false);
   assert.deepEqual(readSearchShareFromUrl(shareUrl, options), {
     prefix: "0912",
@@ -429,23 +442,29 @@ test("workspace share helpers round-trip both search draft and shortlist rows", 
       fee: 480,
       feeLabel: "選號費",
       bucket: "一路發",
-      score: { value: 8, reasons: ["順子"] },
-      statusUrl: "https://example.com/status/1"
+      score: { value: 8, reasons: [] },
+      statusUrl: "/official/mbms/NewApply/findAvailableReal.jsp?telnum=token123&region=2&t=123"
     }
   ];
 
   const encoded = encodeWorkspaceShare(draft, rows, options);
-  assert.deepEqual(decodeWorkspaceShare(encoded, options), {
-    draft: {
-      prefix: "0912",
-      mode: "pattern",
-      pattern: "66xx88",
-      fee: "480",
-      pageLimit: "3",
-      filters: ["5"]
-    },
-    rows: normalizeShortlistRows(rows)
+  const decoded = decodeWorkspaceShare(encoded, options);
+  assert.deepEqual(decoded.draft, {
+    prefix: "0912",
+    mode: "pattern",
+    pattern: "66xx88",
+    fee: "480",
+    pageLimit: "3",
+    filters: ["5"]
   });
+  assert.equal(decoded.rows.length, 1);
+  assert.equal(decoded.rows[0].number, "0905123456");
+  assert.equal(decoded.rows[0].fee, 480);
+  assert.equal(decoded.rows[0].feeLabel, "選號費");
+  assert.equal(decoded.rows[0].bucket, "一路發");
+  assert.deepEqual(decoded.rows[0].score, { value: 8, reasons: [] });
+  assert.match(decoded.rows[0].statusUrl || "", /telnum=token123/);
+  assert.match(decoded.rows[0].statusUrl || "", /region=2/);
 
   const shareUrl = buildWorkspaceShareUrl(
     draft,
@@ -456,7 +475,40 @@ test("workspace share helpers round-trip both search draft and shortlist rows", 
   assert.match(shareUrl, /[?&]ws=/);
   assert.equal(shareUrl.includes("sd="), false);
   assert.equal(shareUrl.includes("sl="), false);
-  assert.deepEqual(readWorkspaceShareFromUrl(shareUrl, options), {
+  const parsedFromUrl = readWorkspaceShareFromUrl(shareUrl, options);
+  assert.deepEqual(parsedFromUrl.draft, decoded.draft);
+  assert.equal(parsedFromUrl.rows[0].number, "0905123456");
+  assert.match(parsedFromUrl.rows[0].statusUrl || "", /telnum=token123/);
+  assert.equal(stripWorkspaceShareParam(shareUrl), "/?foo=1");
+  assert.equal(decodeWorkspaceShare("bad-workspace", options), null);
+});
+
+test("workspace share decoder keeps legacy object payloads working", () => {
+  const options = {
+    prefixes: ["0900", "0912"],
+    modes: ["all", "pattern", "fee"],
+    fees: ["480", "1000"],
+    pageLimits: ["1", "3", "5"],
+    filters: ["5", "6", "9"]
+  };
+  const legacyPayload = toBase64Url(
+    JSON.stringify({
+      v: 1,
+      d: { p: "0912", m: "pattern", t: "66??88", f: "480", l: "3", x: ["5"] },
+      r: [
+        {
+          n: "0905123456",
+          f: 480,
+          l: "選號費",
+          b: "一路發",
+          s: [8, ["順子"]],
+          u: "https://example.com/status/1"
+        }
+      ]
+    })
+  );
+
+  assert.deepEqual(decodeWorkspaceShare(legacyPayload, options), {
     draft: {
       prefix: "0912",
       mode: "pattern",
@@ -465,10 +517,17 @@ test("workspace share helpers round-trip both search draft and shortlist rows", 
       pageLimit: "3",
       filters: ["5"]
     },
-    rows: normalizeShortlistRows(rows)
+    rows: normalizeShortlistRows([
+      {
+        number: "0905123456",
+        fee: 480,
+        feeLabel: "選號費",
+        bucket: "一路發",
+        score: { value: 8, reasons: ["順子"] },
+        statusUrl: "https://example.com/status/1"
+      }
+    ])
   });
-  assert.equal(stripWorkspaceShareParam(shareUrl), "/?foo=1");
-  assert.equal(decodeWorkspaceShare("bad-workspace", options), null);
 });
 
 test("shortlist import/export helpers support json payloads and plain text lists", () => {
@@ -527,7 +586,7 @@ test("shortlist share helpers round-trip rows through a compact URL payload", ()
       fee: 480,
       feeLabel: "選號費",
       bucket: "一路發",
-      score: { value: 9, reasons: ["順子"] },
+      score: { value: 9, reasons: [] },
       statusUrl: "https://example.com/status/1"
     },
     {
@@ -544,8 +603,13 @@ test("shortlist share helpers round-trip rows through a compact URL payload", ()
   const decoded = decodeShortlistShare(encoded);
   assert.deepEqual(decoded, normalizeShortlistRows(rows));
 
-  const shareUrl = buildShortlistShareUrl(rows, "https://cht-number-picker.pages.dev/?foo=1");
+  const shareUrl = buildShortlistShareUrl(
+    rows,
+    "https://cht-number-picker.pages.dev/?foo=1&ws=old&sd=old"
+  );
   assert.match(shareUrl, /[?&]sl=/);
+  assert.equal(shareUrl.includes("ws="), false);
+  assert.equal(shareUrl.includes("sd="), false);
   assert.deepEqual(readShortlistShareFromUrl(shareUrl), normalizeShortlistRows(rows));
   assert.equal(stripShortlistShareParam(shareUrl), "/?foo=1");
 

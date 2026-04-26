@@ -175,6 +175,37 @@
       </section>
     </main>
 
+    <dialog id="share-dialog" class="share-dialog" aria-labelledby="share-dialog-title">
+      <div class="share-card">
+        <div class="share-header">
+          <div>
+            <p id="share-dialog-kicker" class="share-kicker">分享連結</p>
+            <h2 id="share-dialog-title" class="share-title">短版整組分享</h2>
+          </div>
+          <button id="share-dialog-close" class="text-button" type="button">關閉</button>
+        </div>
+
+        <p id="share-dialog-description" class="share-description"></p>
+        <p id="share-dialog-meta" class="share-meta"></p>
+
+        <div class="share-qr-frame">
+          <div id="share-dialog-qr" class="share-qr" aria-live="polite">準備 QR 中...</div>
+        </div>
+
+        <label class="field share-link-field">
+          <span>分享連結</span>
+          <input id="share-dialog-link" type="text" readonly />
+        </label>
+
+        <div class="share-actions">
+          <button id="share-dialog-copy" class="primary-button" type="button">複製連結</button>
+          <a id="share-dialog-open" class="ghost-link-button" href="/" target="_blank" rel="noreferrer">
+            新開頁
+          </a>
+        </div>
+      </div>
+    </dialog>
+
     <template id="result-template">
       <article class="number-item">
         <div>

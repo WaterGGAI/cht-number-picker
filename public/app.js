@@ -72,6 +72,16 @@ const clearButton = document.querySelector("#clear-button");
 const sortButton = document.querySelector("#sort-button");
 const viewListButton = document.querySelector("#view-list");
 const viewGridButton = document.querySelector("#view-grid");
+const shareDialog = document.querySelector("#share-dialog");
+const shareDialogKicker = document.querySelector("#share-dialog-kicker");
+const shareDialogTitle = document.querySelector("#share-dialog-title");
+const shareDialogDescription = document.querySelector("#share-dialog-description");
+const shareDialogMeta = document.querySelector("#share-dialog-meta");
+const shareDialogQr = document.querySelector("#share-dialog-qr");
+const shareDialogLink = document.querySelector("#share-dialog-link");
+const shareDialogCopyButton = document.querySelector("#share-dialog-copy");
+const shareDialogOpenLink = document.querySelector("#share-dialog-open");
+const shareDialogCloseButton = document.querySelector("#share-dialog-close");
 const resultTemplate = document.querySelector("#result-template");
 const {
   cloneRows,
@@ -107,6 +117,10 @@ const {
 } = window.CHTAppLogic;
 
 const mobileMedia = window.matchMedia("(max-width: 640px)");
+const QR_MODULE_URL = "https://esm.sh/qrcode@1.5.4?bundle";
+
+let qrCodeModulePromise = null;
+let activeShareDialogUrl = "";
 
 function loadShortlist() {
   try {
@@ -164,6 +178,162 @@ function flashButtonLabel(button, text, fallback, delay = 1200) {
   button._flashTimeout = setTimeout(() => {
     button.textContent = fallback;
   }, delay);
+}
+
+function hasNativeShare() {
+  return typeof navigator.share === "function";
+}
+
+async function loadQrCodeModule() {
+  if (window.QRCode) return window.QRCode;
+  if (!qrCodeModulePromise) {
+    qrCodeModulePromise = import(QR_MODULE_URL)
+      .then((module) => module.default || module)
+      .catch((error) => {
+        qrCodeModulePromise = null;
+        throw error;
+      });
+  }
+  return qrCodeModulePromise;
+}
+
+async function buildQrSvg(url) {
+  const QRCode = await loadQrCodeModule();
+  return await new Promise((resolve, reject) => {
+    QRCode.toString(
+      url,
+      {
+        type: "svg",
+        margin: 1,
+        width: 220,
+        color: {
+          dark: "#173625",
+          light: "#FFFFFFFF"
+        }
+      },
+      (error, svg) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(svg);
+      }
+    );
+  });
+}
+
+function resetShareDialog() {
+  activeShareDialogUrl = "";
+  shareDialogKicker.textContent = "分享連結";
+  shareDialogTitle.textContent = "短版分享";
+  shareDialogDescription.textContent = "";
+  shareDialogMeta.textContent = "";
+  shareDialogQr.textContent = "準備 QR 中...";
+  shareDialogLink.value = "";
+  shareDialogOpenLink.href = "/";
+  clearTimeout(shareDialogCopyButton._flashTimeout);
+  shareDialogCopyButton.textContent = "複製連結";
+}
+
+async function openShareDialog({ kicker, title, description, meta, url }) {
+  if (!shareDialog?.showModal) return false;
+
+  activeShareDialogUrl = url;
+  shareDialogKicker.textContent = kicker || "分享連結";
+  shareDialogTitle.textContent = title || "短版分享";
+  shareDialogDescription.textContent = description || "";
+  shareDialogMeta.textContent = meta || `短版連結 · ${url.length} 字元`;
+  shareDialogLink.value = url;
+  shareDialogOpenLink.href = url;
+  shareDialogQr.textContent = "產生 QR 中...";
+
+  if (!shareDialog.open) {
+    shareDialog.showModal();
+  }
+
+  try {
+    const svg = await buildQrSvg(url);
+    if (activeShareDialogUrl !== url) return true;
+    shareDialogQr.innerHTML = svg;
+  } catch (error) {
+    if (activeShareDialogUrl === url) {
+      shareDialogQr.textContent = "QR 暫時載不出來，下面的短版連結還是可以直接複製。";
+    }
+    console.warn("QR render failed", error);
+  }
+
+  return true;
+}
+
+async function copyShareDialogLink() {
+  if (!activeShareDialogUrl) return;
+  try {
+    await navigator.clipboard.writeText(activeShareDialogUrl);
+    flashButtonLabel(shareDialogCopyButton, "已複製", "複製連結", 1600);
+  } catch (error) {
+    flashButtonLabel(shareDialogCopyButton, "失敗", "複製連結", 1600);
+    console.warn("Share dialog copy failed", error);
+  }
+}
+
+function closeShareDialog() {
+  if (shareDialog?.open) shareDialog.close();
+}
+
+async function presentShare(shareData, options = {}) {
+  const {
+    button,
+    fallbackLabel,
+    dialogKicker,
+    dialogTitle,
+    dialogDescription,
+    dialogMeta,
+    forceDialog = false
+  } = options;
+
+  if (!forceDialog && hasNativeShare()) {
+    try {
+      await navigator.share(shareData);
+      if (button && fallbackLabel) {
+        flashButtonLabel(button, "已分享", fallbackLabel, 1600);
+      }
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") {
+        if (button && fallbackLabel) {
+          flashButtonLabel(button, "已取消", fallbackLabel, 1200);
+        }
+        return;
+      }
+      console.warn("Navigator share failed", error);
+    }
+  }
+
+  const opened = await openShareDialog({
+    kicker: dialogKicker,
+    title: dialogTitle,
+    description: dialogDescription,
+    meta: dialogMeta,
+    url: shareData.url
+  });
+  if (opened) {
+    if (button && fallbackLabel) {
+      flashButtonLabel(button, "已開啟", fallbackLabel, 1400);
+    }
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(shareData.url);
+    if (button && fallbackLabel) {
+      flashButtonLabel(button, "已複製連結", fallbackLabel, 1800);
+    }
+  } catch (error) {
+    if (button && fallbackLabel) {
+      flashButtonLabel(button, "無法分享", fallbackLabel, 1800);
+    }
+    console.warn("Fallback share copy failed", error);
+  }
 }
 
 function getQuickLink(id) {
@@ -352,38 +522,20 @@ async function shareShortlist() {
   if (!state.shortlist.length) return;
 
   const shareUrl = buildShortlistShareUrl(sortedShortlist(), window.location.href);
-  if (shareUrl.length > 3500) {
-    flashButtonLabel(shortlistShareButton, "清單太長", "分享", 1800);
-    return;
-  }
-
   const shareData = {
     title: "中華電信門號快選",
     text: "這是我整理的待選門號清單。",
     url: shareUrl
   };
-
-  try {
-    if (typeof navigator.share === "function") {
-      await navigator.share(shareData);
-      flashButtonLabel(shortlistShareButton, "已分享", "清單", 1600);
-      return;
-    }
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      flashButtonLabel(shortlistShareButton, "已取消", "清單", 1200);
-      return;
-    }
-    console.warn("Navigator share failed", error);
-  }
-
-  try {
-    await navigator.clipboard.writeText(shareUrl);
-    flashButtonLabel(shortlistShareButton, "已複製連結", "清單", 1800);
-  } catch (error) {
-    flashButtonLabel(shortlistShareButton, "無法分享", "清單", 1800);
-    console.warn("Shortlist share copy failed", error);
-  }
+  await presentShare(shareData, {
+    button: shortlistShareButton,
+    fallbackLabel: "清單",
+    dialogKicker: "待選門號",
+    dialogTitle: "短版清單分享",
+    dialogDescription: "桌機可以直接掃 QR，手機也能照常分享或複製。",
+    dialogMeta: `${state.shortlist.length} 筆待選 · ${shareUrl.length} 字元`,
+    forceDialog: shareUrl.length > 3200
+  });
 }
 
 async function shareWorkspace() {
@@ -394,38 +546,21 @@ async function shareWorkspace() {
     window.location.href,
     getSearchDraftOptions()
   );
-  if (shareUrl.length > 3500) {
-    flashButtonLabel(searchShareButton, "太長", "整組", 1600);
-    return;
-  }
 
   const shareData = {
     title: "中華電信門號快選",
     text: "這是我整理好的查詢條件和待選門號。",
     url: shareUrl
   };
-
-  try {
-    if (typeof navigator.share === "function") {
-      await navigator.share(shareData);
-      flashButtonLabel(searchShareButton, "已分享", "整組", 1600);
-      return;
-    }
-  } catch (error) {
-    if (error?.name === "AbortError") {
-      flashButtonLabel(searchShareButton, "已取消", "整組", 1200);
-      return;
-    }
-    console.warn("Workspace share failed", error);
-  }
-
-  try {
-    await navigator.clipboard.writeText(shareUrl);
-    flashButtonLabel(searchShareButton, "已複製連結", "整組", 1800);
-  } catch (error) {
-    flashButtonLabel(searchShareButton, "無法分享", "整組", 1800);
-    console.warn("Workspace share copy failed", error);
-  }
+  await presentShare(shareData, {
+    button: searchShareButton,
+    fallbackLabel: "整組",
+    dialogKicker: "工作台分享",
+    dialogTitle: "短版整組分享",
+    dialogDescription: "會一起帶上查詢條件和收藏清單，桌機打開時可直接掃 QR。",
+    dialogMeta: `${state.shortlist.length} 筆待選 · ${shareUrl.length} 字元`,
+    forceDialog: shareUrl.length > 3200
+  });
 }
 
 async function importShortlistFile(file) {
@@ -1243,6 +1378,27 @@ sortButton.addEventListener("click", () => {
   sortButton.textContent = state.sortByScore ? "依好記度" : "依號碼";
   renderResults();
   saveSnapshot(state.activeQuickLink);
+});
+shareDialogCopyButton.addEventListener("click", () => {
+  copyShareDialogLink();
+});
+shareDialogCloseButton.addEventListener("click", () => {
+  closeShareDialog();
+});
+shareDialogLink.addEventListener("focus", () => {
+  shareDialogLink.select();
+});
+shareDialog.addEventListener("close", resetShareDialog);
+shareDialog.addEventListener("click", (event) => {
+  const bounds = shareDialog.getBoundingClientRect();
+  const clickedBackdrop =
+    event.clientX < bounds.left ||
+    event.clientX > bounds.right ||
+    event.clientY < bounds.top ||
+    event.clientY > bounds.bottom;
+  if (clickedBackdrop) {
+    closeShareDialog();
+  }
 });
 viewListButton.addEventListener("click", () => {
   setDisplayMode("list");

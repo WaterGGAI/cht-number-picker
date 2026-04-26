@@ -494,6 +494,99 @@ input:focus {
   text-decoration: none;
 }
 
+.share-dialog {
+  width: min(100% - 24px, 420px);
+  padding: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.share-dialog::backdrop {
+  background: rgba(18, 26, 21, 0.48);
+  backdrop-filter: blur(5px);
+}
+
+.share-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.share-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.share-kicker {
+  margin: 0;
+  color: var(--accent-dark);
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.share-title {
+  margin: 6px 0 0;
+  font-size: 1.18rem;
+  line-height: 1.1;
+}
+
+.share-description,
+.share-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.share-meta {
+  color: var(--accent-dark);
+  font-weight: 760;
+}
+
+.share-qr-frame {
+  display: grid;
+  place-items: center;
+  min-height: 244px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.share-qr {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 214px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.share-qr svg {
+  display: block;
+  width: min(100%, 214px);
+  height: auto;
+}
+
+.share-link-field input {
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.share-actions {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
 .primary-button:hover,
 .ghost-button:hover,
 .ghost-link-button:hover,
@@ -990,6 +1083,29 @@ input:focus {
     gap: 8px;
   }
 
+  .share-card {
+    gap: 12px;
+    padding: 14px;
+  }
+
+  .share-title {
+    font-size: 1.05rem;
+  }
+
+  .share-description,
+  .share-meta {
+    font-size: 0.82rem;
+  }
+
+  .share-qr-frame {
+    min-height: 214px;
+    padding: 10px;
+  }
+
+  .share-qr {
+    min-height: 190px;
+  }
+
   .category-groups {
     gap: 6px;
     padding-bottom: 2px;
@@ -1022,6 +1138,11 @@ input:focus {
 
   .pager-button.is-range {
     min-width: 58px;
+  }
+
+  .share-actions {
+    grid-template-columns: 1fr 82px;
+    gap: 8px;
   }
 
   .status-line {
