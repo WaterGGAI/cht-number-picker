@@ -7,7 +7,7 @@
     "start": "node server.js",
     "test": "node --test",
     "prepare:pages": "node scripts/prepare-pages.mjs",
-    "check:js": "node --check worker.js && node --check server.js && node --check public/app.js",
+    "check:js": "node --check worker.js && node --check server.js && node --check public/app.js && node --check public/app-logic.js && node --check public/sw.js",
     "check:pages": "npm run prepare:pages && node --check public/_worker.js",
     "check:cf": "npm run check:js && npm run check:pages",
     "deploy:cf": "npm run prepare:pages && wrangler pages deploy public --project-name cht-number-picker --branch main --commit-dirty=true"

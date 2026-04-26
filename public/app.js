@@ -1,5 +1,6 @@
 const SHORTLIST_STORAGE_KEY = "cht-shortlist-v1";
 const DISPLAY_STORAGE_KEY = "cht-display-mode-v1";
+const SEARCH_DRAFT_STORAGE_KEY = "cht-search-draft-v1";
 const CATEGORY_ALL_GROUP = "__all";
 
 const DEFAULT_EMPTY_STATE = {
@@ -83,7 +84,8 @@ const {
   formatPageRange: resolvePageRange,
   buildBatchSequence: resolveBatchSequence,
   buildSnapshot,
-  restoreSnapshotState
+  restoreSnapshotState,
+  normalizeSearchDraft
 } = window.CHTAppLogic;
 
 const mobileMedia = window.matchMedia("(max-width: 640px)");
@@ -108,6 +110,18 @@ function saveDisplayMode() {
   localStorage.setItem(DISPLAY_STORAGE_KEY, state.displayMode);
 }
 
+function loadSearchDraft() {
+  try {
+    return JSON.parse(localStorage.getItem(SEARCH_DRAFT_STORAGE_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function saveSearchDraft(draft) {
+  localStorage.setItem(SEARCH_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+}
+
 function syncDisplayMode() {
   const isGrid = state.displayMode === "grid";
   results.classList.toggle("is-grid", isGrid);
@@ -129,6 +143,46 @@ function getQuickLink(id) {
 
 function getFilters() {
   return [...form.querySelectorAll("input[name='filters']:checked")].map((input) => input.value);
+}
+
+function getSearchDraftOptions() {
+  return {
+    prefixes: state.config?.prefixes || [],
+    modes: ["all", "pattern", "fee"],
+    fees: [...feeInput.options].map((optionNode) => optionNode.value),
+    pageLimits: [...pageLimitInput.options].map((optionNode) => optionNode.value),
+    filters: state.config?.filters?.map((filter) => filter.value) || []
+  };
+}
+
+function persistSearchDraft() {
+  if (!state.config) return;
+  saveSearchDraft(
+    normalizeSearchDraft(
+      {
+        prefix: prefixInput.value,
+        mode: modeInput.value,
+        pattern: patternInput.value,
+        fee: feeInput.value,
+        pageLimit: pageLimitInput.value,
+        filters: getFilters()
+      },
+      getSearchDraftOptions()
+    )
+  );
+}
+
+function applySearchDraft() {
+  if (!state.config) return;
+  const draft = normalizeSearchDraft(loadSearchDraft(), getSearchDraftOptions());
+  prefixInput.value = draft.prefix;
+  modeInput.value = draft.mode;
+  patternInput.value = draft.pattern;
+  feeInput.value = draft.fee;
+  pageLimitInput.value = draft.pageLimit;
+  form.querySelectorAll("input[name='filters']").forEach((input) => {
+    input.checked = draft.filters.includes(input.value);
+  });
 }
 
 function option(value, label = value) {
@@ -828,7 +882,17 @@ function clearForm() {
   setStatusVisible(false);
   setStatus("準備查詢", 0);
   renderEmpty(DEFAULT_EMPTY_STATE.title, DEFAULT_EMPTY_STATE.detail);
+  persistSearchDraft();
   saveSnapshot("free");
+}
+
+async function registerServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  try {
+    await navigator.serviceWorker.register("/sw.js");
+  } catch (error) {
+    console.warn("Service worker registration failed", error);
+  }
 }
 
 async function fetchCategory(link) {
@@ -900,16 +964,26 @@ async function activateQuickLink(id, { force = false } = {}) {
   await fetchCategory(link);
 }
 
-modeInput.addEventListener("change", syncModeFields);
+prefixInput.addEventListener("change", persistSearchDraft);
+modeInput.addEventListener("change", () => {
+  syncModeFields();
+  persistSearchDraft();
+});
+feeInput.addEventListener("change", persistSearchDraft);
+pageLimitInput.addEventListener("change", persistSearchDraft);
 filtersWrap.addEventListener("toggle", () => {
   filtersWrap.dataset.userTouched = "true";
 });
-filterList.addEventListener("change", updateFilterSummary);
+filterList.addEventListener("change", () => {
+  updateFilterSummary();
+  persistSearchDraft();
+});
 mobileMedia.addEventListener("change", syncResponsiveLayout);
 patternInput.addEventListener("input", () => {
   const caret = patternInput.selectionStart;
   patternInput.value = normalizePattern(patternInput.value);
   patternInput.setSelectionRange(caret, caret);
+  persistSearchDraft();
 });
 form.addEventListener("submit", search);
 clearButton.addEventListener("click", clearForm);
@@ -949,6 +1023,7 @@ viewGridButton.addEventListener("click", () => {
 
 loadConfig()
   .then(() => {
+    applySearchDraft();
     syncModeFields();
     updateFilterSummary();
     syncResponsiveLayout();
@@ -957,9 +1032,12 @@ loadConfig()
     setStatusVisible(false);
     renderEmpty(DEFAULT_EMPTY_STATE.title, DEFAULT_EMPTY_STATE.detail);
     renderShortlist();
+    persistSearchDraft();
     saveSnapshot("free");
   })
   .catch((error) => {
     setStatus("設定載入失敗", 0);
     renderEmpty("無法啟動", error.message);
   });
+
+registerServiceWorker();

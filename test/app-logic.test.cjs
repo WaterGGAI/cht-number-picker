@@ -17,7 +17,8 @@ const {
   formatPageRange,
   buildBatchSequence,
   buildSnapshot,
-  restoreSnapshotState
+  restoreSnapshotState,
+  normalizeSearchDraft
 } = require("../public/app-logic.js");
 
 test("normalizePattern and toOfficialPattern keep mobile-friendly x input stable", () => {
@@ -227,4 +228,61 @@ test("restoreSnapshotState rebuilds view state and falls back to defaults for pa
   });
 
   assert.equal(restoreSnapshotState(null), null);
+});
+
+test("normalizeSearchDraft keeps allowed choices and restores safe defaults", () => {
+  const draft = normalizeSearchDraft(
+    {
+      prefix: "0912",
+      mode: "pattern",
+      pattern: "58??58abc",
+      fee: "1000",
+      pageLimit: "5",
+      filters: ["f5", "f5", "f9", "bad"]
+    },
+    {
+      prefixes: ["0900", "0912"],
+      modes: ["all", "pattern", "fee"],
+      fees: ["480", "1000"],
+      pageLimits: ["1", "3", "5"],
+      filters: ["f5", "f9"]
+    }
+  );
+
+  assert.deepEqual(draft, {
+    prefix: "0912",
+    mode: "pattern",
+    pattern: "58xx58",
+    fee: "1000",
+    pageLimit: "5",
+    filters: ["f5", "f9"]
+  });
+
+  assert.deepEqual(
+    normalizeSearchDraft(
+      {
+        prefix: "0999",
+        mode: "weird",
+        pattern: "ABC??",
+        fee: "9999",
+        pageLimit: "88",
+        filters: ["unknown"]
+      },
+      {
+        prefixes: ["0900", "0912"],
+        modes: ["all", "pattern", "fee"],
+        fees: ["480", "1000"],
+        pageLimits: ["1", "3", "5"],
+        filters: ["f5", "f9"]
+      }
+    ),
+    {
+      prefix: "0900",
+      mode: "all",
+      pattern: "xx",
+      fee: "480",
+      pageLimit: "1",
+      filters: []
+    }
+  );
 });

@@ -208,6 +208,32 @@ const CHTAppLogic = (() => {
     };
   }
 
+  function normalizeSearchDraft(draft = {}, options = {}) {
+    const prefixes = Array.isArray(options.prefixes) ? options.prefixes.map(String) : [];
+    const modes = Array.isArray(options.modes) ? options.modes.map(String) : ["all", "pattern", "fee"];
+    const fees = Array.isArray(options.fees) ? options.fees.map(String) : ["480", "1000"];
+    const pageLimits = Array.isArray(options.pageLimits) ? options.pageLimits.map(String) : ["1", "3", "5"];
+    const allowedFilters = new Set(
+      Array.isArray(options.filters) ? options.filters.map(String) : []
+    );
+
+    const uniqueFilters = [...new Set(Array.isArray(draft.filters) ? draft.filters.map(String) : [])]
+      .filter((value) => allowedFilters.has(value));
+
+    return {
+      prefix:
+        prefixes.includes(String(draft.prefix)) ? String(draft.prefix) : prefixes[0] || "0900",
+      mode: modes.includes(String(draft.mode)) ? String(draft.mode) : modes[0] || "all",
+      pattern: normalizePattern(draft.pattern),
+      fee: fees.includes(String(draft.fee)) ? String(draft.fee) : fees[0] || "480",
+      pageLimit:
+        pageLimits.includes(String(draft.pageLimit))
+          ? String(draft.pageLimit)
+          : pageLimits[0] || "1",
+      filters: uniqueFilters
+    };
+  }
+
   return {
     cloneRows,
     clonePagination,
@@ -224,7 +250,8 @@ const CHTAppLogic = (() => {
     formatPageRange,
     buildBatchSequence,
     buildSnapshot,
-    restoreSnapshotState
+    restoreSnapshotState,
+    normalizeSearchDraft
   };
 })();
 

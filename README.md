@@ -132,9 +132,10 @@ npm run check:cf
 - [public/index.html](public/index.html)
 - [public/favicon.svg](public/favicon.svg)
 - [public/manifest.webmanifest](public/manifest.webmanifest)
+- [public/sw.js](public/sw.js)
 - [public/app.js](public/app.js)
 - [public/app-logic.js](public/app-logic.js)  
-  Frontend pure helpers for sorting, pagination, pattern normalization, and quick-link snapshot state.
+  Frontend pure helpers for sorting, pagination, pattern normalization, quick-link snapshot state, and saved search drafts.
 - [public/styles.css](public/styles.css)
 - [lib/cht-core.cjs](lib/cht-core.cjs)
 - [scripts/prepare-pages.mjs](scripts/prepare-pages.mjs)
