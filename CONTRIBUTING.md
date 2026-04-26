@@ -27,6 +27,7 @@ npm start
 ## 主要檔案
 
 - `public/index.html`: 介面結構
+- `public/favicon.svg`: 網站 favicon
 - `public/app.js`: 前端查詢流程、狀態管理、分類與清單邏輯
 - `public/app-logic.js`: 前端共用的純排序 / 分頁 / pattern / snapshot helper
 - `public/styles.css`: 視覺與響應式樣式
