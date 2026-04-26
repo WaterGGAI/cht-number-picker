@@ -139,6 +139,29 @@ const CHTAppLogic = (() => {
     return normalizePattern(value).replace(/x/g, "?");
   }
 
+  function normalizeNumberCopyFormat(format) {
+    return String(format || "").trim() === "spaced" ? "spaced" : "plain";
+  }
+
+  function formatCopyNumber(value, format = "plain") {
+    const number = normalizeNumber(value) || String(value || "").replace(/\D/g, "");
+    if (!number) return "";
+    if (normalizeNumberCopyFormat(format) !== "spaced" || number.length !== 10) {
+      return number;
+    }
+    return `${number.slice(0, 4)} ${number.slice(4, 7)} ${number.slice(7)}`;
+  }
+
+  function formatNumberCopyList(rows = [], format = "plain") {
+    return rows
+      .map((row) => {
+        if (row && typeof row === "object") return formatCopyNumber(row.number, format);
+        return formatCopyNumber(row, format);
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+
   function getBatchSize(pagination = {}) {
     return Math.max(1, Number(pagination.batchSize) || 1);
   }
@@ -327,7 +350,7 @@ const CHTAppLogic = (() => {
     if (normalizedRows.length) {
       chips.push({
         label: `${normalizedRows.length}筆待選`,
-        copyText: normalizedRows.map((row) => row.number).join("\n")
+        copyText: formatNumberCopyList(normalizedRows, options.numberFormat)
       });
     }
 
@@ -775,6 +798,9 @@ const CHTAppLogic = (() => {
     buildCategoryGroups,
     normalizePattern,
     toOfficialPattern,
+    normalizeNumberCopyFormat,
+    formatCopyNumber,
+    formatNumberCopyList,
     getBatchSize,
     getLoadedPages,
     getBatchPages,

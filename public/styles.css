@@ -209,6 +209,13 @@ h1 {
   font-size: 0.82rem;
 }
 
+.copy-format-select {
+  width: auto;
+  min-height: 36px;
+  padding: 0 28px 0 10px;
+  font-size: 0.82rem;
+}
+
 .shortlist-kicker {
   margin: 0;
   color: var(--accent-dark);
@@ -555,6 +562,16 @@ input:focus {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.share-format-field {
+  justify-self: start;
+  min-width: 0;
+  max-width: 146px;
+}
+
+.share-format-field span {
+  font-size: 0.76rem;
 }
 
 .share-chip {
@@ -1054,6 +1071,12 @@ input:focus {
   .shortlist-sort {
     min-height: 32px;
     max-width: 86px;
+    font-size: 0.76rem;
+  }
+
+  .copy-format-select {
+    min-height: 32px;
+    max-width: 102px;
     font-size: 0.76rem;
   }
 

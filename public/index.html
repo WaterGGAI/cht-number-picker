@@ -131,6 +131,10 @@
                 <option value="number">依號碼</option>
                 <option value="score">依好記度</option>
               </select>
+              <select id="number-copy-format" class="copy-format-select" aria-label="門號複製格式">
+                <option value="plain">純數字</option>
+                <option value="spaced">空格分段</option>
+              </select>
               <button id="shortlist-copy" class="text-button" type="button">複製全部</button>
               <button
                 id="shortlist-share"
@@ -188,6 +192,13 @@
         <p id="share-dialog-description" class="share-description"></p>
         <p id="share-dialog-meta" class="share-meta"></p>
         <div id="share-dialog-summary" class="share-summary" hidden></div>
+        <label class="field share-format-field">
+          <span>門號格式</span>
+          <select id="share-dialog-number-format" class="copy-format-select" aria-label="分享門號格式">
+            <option value="plain">純數字</option>
+            <option value="spaced">空格分段</option>
+          </select>
+        </label>
 
         <div class="share-qr-frame">
           <div id="share-dialog-qr" class="share-qr" aria-live="polite">準備 QR 中...</div>

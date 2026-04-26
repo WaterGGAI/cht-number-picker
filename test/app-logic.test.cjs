@@ -31,6 +31,9 @@ const {
   buildCategoryGroups,
   normalizePattern,
   toOfficialPattern,
+  normalizeNumberCopyFormat,
+  formatCopyNumber,
+  formatNumberCopyList,
   getBatchSize,
   getLoadedPages,
   getBatchPages,
@@ -56,6 +59,17 @@ test("normalizePattern and toOfficialPattern keep mobile-friendly x input stable
   assert.equal(normalizePattern("58??58"), "58xx58");
   assert.equal(normalizePattern(" 58Ｘx5?8abc "), "58xx5x");
   assert.equal(toOfficialPattern("58xx58"), "58??58");
+});
+
+test("number copy format helpers switch between plain and spaced output", () => {
+  assert.equal(normalizeNumberCopyFormat("spaced"), "spaced");
+  assert.equal(normalizeNumberCopyFormat("weird"), "plain");
+  assert.equal(formatCopyNumber("0905123456", "plain"), "0905123456");
+  assert.equal(formatCopyNumber("0905123456", "spaced"), "0905 123 456");
+  assert.equal(
+    formatNumberCopyList(["0905123456", { number: "0912661188" }], "spaced"),
+    "0905 123 456\n0912 661 188"
+  );
 });
 
 test("sortShortlistRows respects added, number, and score modes", () => {
@@ -226,6 +240,23 @@ test("share summary helpers describe shortlist prefixes and query conditions", (
       { label: "3頁", copyText: "3" },
       { label: "第5碼不含4 / 第6碼不含4 +1", copyText: "第5碼不含4\n第6碼不含4\n第9碼不含4" }
     ]
+  );
+
+  assert.deepEqual(
+    buildShareSummaryItems(
+      {
+        prefix: "0912",
+        mode: "pattern",
+        pattern: "66??88",
+        pageLimit: "3",
+        filters: []
+      },
+      rows,
+      {
+        numberFormat: "spaced"
+      }
+    )[0],
+    { label: "4筆待選", copyText: "0905 123 456\n0912 661 188\n0928 123 123\n0937 123 123" }
   );
 
   assert.deepEqual(

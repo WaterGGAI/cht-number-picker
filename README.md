@@ -181,6 +181,7 @@ npm run check:cf
 - [x] QR 圖片複製
 - [x] 分享視窗複製門號清單
 - [x] 分享摘要單項複製
+- [x] 門號複製格式切換（純數字 / 空格分段）
 - [x] Cloudflare Pages 正式部署
 - [x] GitHub 開源與 README 截圖
 
