@@ -1,0 +1,31 @@
+{
+  "name": "中華電信門號快選",
+  "short_name": "門號快選",
+  "description": "更好在手機上快速篩選、收藏、比較中華電信門號。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f2e4",
+  "theme_color": "#173625",
+  "lang": "zh-Hant-TW",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
