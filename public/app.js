@@ -81,6 +81,9 @@ const {
   buildShortlistExport,
   parseShortlistImport,
   mergeShortlistRows,
+  buildWorkspaceShareUrl,
+  readWorkspaceShareFromUrl,
+  stripWorkspaceShareParam,
   buildSearchShareUrl,
   readSearchShareFromUrl,
   stripSearchShareParam,
@@ -363,12 +366,12 @@ async function shareShortlist() {
   try {
     if (typeof navigator.share === "function") {
       await navigator.share(shareData);
-      flashButtonLabel(shortlistShareButton, "已分享", "分享", 1600);
+      flashButtonLabel(shortlistShareButton, "已分享", "清單", 1600);
       return;
     }
   } catch (error) {
     if (error?.name === "AbortError") {
-      flashButtonLabel(shortlistShareButton, "已取消", "分享", 1200);
+      flashButtonLabel(shortlistShareButton, "已取消", "清單", 1200);
       return;
     }
     console.warn("Navigator share failed", error);
@@ -376,47 +379,52 @@ async function shareShortlist() {
 
   try {
     await navigator.clipboard.writeText(shareUrl);
-    flashButtonLabel(shortlistShareButton, "已複製連結", "分享", 1800);
+    flashButtonLabel(shortlistShareButton, "已複製連結", "清單", 1800);
   } catch (error) {
-    flashButtonLabel(shortlistShareButton, "無法分享", "分享", 1800);
+    flashButtonLabel(shortlistShareButton, "無法分享", "清單", 1800);
     console.warn("Shortlist share copy failed", error);
   }
 }
 
-async function shareSearchDraft() {
+async function shareWorkspace() {
   if (!state.config) return;
-  const shareUrl = buildSearchShareUrl(
+  const shareUrl = buildWorkspaceShareUrl(
     getCurrentSearchDraft(),
+    sortedShortlist(),
     window.location.href,
     getSearchDraftOptions()
   );
+  if (shareUrl.length > 3500) {
+    flashButtonLabel(searchShareButton, "太長", "整組", 1600);
+    return;
+  }
 
   const shareData = {
     title: "中華電信門號快選",
-    text: "這是我整理好的門號查詢條件。",
+    text: "這是我整理好的查詢條件和待選門號。",
     url: shareUrl
   };
 
   try {
     if (typeof navigator.share === "function") {
       await navigator.share(shareData);
-      flashButtonLabel(searchShareButton, "已分享", "分享", 1600);
+      flashButtonLabel(searchShareButton, "已分享", "整組", 1600);
       return;
     }
   } catch (error) {
     if (error?.name === "AbortError") {
-      flashButtonLabel(searchShareButton, "已取消", "分享", 1200);
+      flashButtonLabel(searchShareButton, "已取消", "整組", 1200);
       return;
     }
-    console.warn("Search draft share failed", error);
+    console.warn("Workspace share failed", error);
   }
 
   try {
     await navigator.clipboard.writeText(shareUrl);
-    flashButtonLabel(searchShareButton, "已複製連結", "分享", 1800);
+    flashButtonLabel(searchShareButton, "已複製連結", "整組", 1800);
   } catch (error) {
-    flashButtonLabel(searchShareButton, "無法分享", "分享", 1800);
-    console.warn("Search draft share copy failed", error);
+    flashButtonLabel(searchShareButton, "無法分享", "整組", 1800);
+    console.warn("Workspace share copy failed", error);
   }
 }
 
@@ -1051,6 +1059,28 @@ function applyShortlistShareFromUrl() {
   return true;
 }
 
+function applyWorkspaceShareFromUrl() {
+  const sharedWorkspace = readWorkspaceShareFromUrl(window.location.href, getSearchDraftOptions());
+  if (!sharedWorkspace) return false;
+
+  prefixInput.value = sharedWorkspace.draft.prefix;
+  modeInput.value = sharedWorkspace.draft.mode;
+  patternInput.value = sharedWorkspace.draft.pattern;
+  feeInput.value = sharedWorkspace.draft.fee;
+  pageLimitInput.value = sharedWorkspace.draft.pageLimit;
+  form.querySelectorAll("input[name='filters']").forEach((input) => {
+    input.checked = sharedWorkspace.draft.filters.includes(input.value);
+  });
+
+  state.shortlist = sharedWorkspace.rows;
+  saveShortlist();
+  saveSearchDraft(sharedWorkspace.draft);
+  if (window.location.search.includes("ws=")) {
+    history.replaceState({}, "", stripWorkspaceShareParam(window.location.href));
+  }
+  return true;
+}
+
 function applySearchDraftShareFromUrl() {
   const sharedDraft = readSearchShareFromUrl(window.location.href, getSearchDraftOptions());
   if (!sharedDraft) return false;
@@ -1172,7 +1202,7 @@ patternInput.addEventListener("input", () => {
 });
 form.addEventListener("submit", search);
 searchShareButton.addEventListener("click", () => {
-  shareSearchDraft();
+  shareWorkspace();
 });
 clearButton.addEventListener("click", clearForm);
 categoryRefreshButton.addEventListener("click", () => {
@@ -1224,7 +1254,8 @@ viewGridButton.addEventListener("click", () => {
 loadConfig()
   .then(() => {
     applySearchDraft();
-    const loadedSharedSearchDraft = applySearchDraftShareFromUrl();
+    const loadedWorkspace = applyWorkspaceShareFromUrl();
+    const loadedSharedSearchDraft = !loadedWorkspace && applySearchDraftShareFromUrl();
     syncModeFields();
     updateFilterSummary();
     syncResponsiveLayout();
@@ -1232,13 +1263,16 @@ loadConfig()
     syncDisplayMode();
     setStatusVisible(false);
     renderEmpty(DEFAULT_EMPTY_STATE.title, DEFAULT_EMPTY_STATE.detail);
-    const loadedSharedShortlist = applyShortlistShareFromUrl();
+    const loadedSharedShortlist = !loadedWorkspace && applyShortlistShareFromUrl();
     renderShortlist();
+    if (loadedWorkspace) {
+      flashButtonLabel(searchShareButton, "已載入整組", "整組", 1800);
+    }
     if (loadedSharedSearchDraft) {
-      flashButtonLabel(searchShareButton, "已載入條件", "分享", 1800);
+      flashButtonLabel(searchShareButton, "已載入條件", "整組", 1800);
     }
     if (loadedSharedShortlist) {
-      flashButtonLabel(shortlistShareButton, "已載入連結", "分享", 1800);
+      flashButtonLabel(shortlistShareButton, "已載入連結", "清單", 1800);
     }
     persistSearchDraft();
     saveSnapshot("free");

@@ -350,6 +350,54 @@ const CHTAppLogic = (() => {
     return `${url.pathname}${url.search}${url.hash}`;
   }
 
+  function encodeWorkspaceShare(draft = {}, rows = [], options = {}) {
+    const normalizedDraft = normalizeSearchDraft(draft, options);
+    const normalizedRows = normalizeShortlistRows(rows);
+    return encodeBase64Url(
+      JSON.stringify({
+        v: 1,
+        d: packSearchShareDraft(normalizedDraft),
+        r: normalizedRows.map((row) => packShortlistShareRow(row))
+      })
+    );
+  }
+
+  function decodeWorkspaceShare(value, options = {}) {
+    if (!value) return null;
+    try {
+      const parsed = JSON.parse(decodeBase64Url(value));
+      return {
+        draft: normalizeSearchDraft(unpackSearchShareDraft(parsed?.d), options),
+        rows: normalizeShortlistRows(
+          Array.isArray(parsed?.r) ? parsed.r.map((row) => unpackShortlistShareRow(row)) : []
+        )
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  function buildWorkspaceShareUrl(draft = {}, rows = [], currentUrl, options = {}) {
+    const url = new URL(currentUrl || "https://example.com/");
+    url.searchParams.set("ws", encodeWorkspaceShare(draft, rows, options));
+    url.searchParams.delete("sd");
+    url.searchParams.delete("sl");
+    return url.toString();
+  }
+
+  function readWorkspaceShareFromUrl(currentUrl, options = {}) {
+    const url = new URL(currentUrl || "https://example.com/");
+    return decodeWorkspaceShare(url.searchParams.get("ws"), options);
+  }
+
+  function stripWorkspaceShareParam(currentUrl) {
+    const url = new URL(currentUrl || "https://example.com/");
+    url.searchParams.delete("ws");
+    url.searchParams.delete("sd");
+    url.searchParams.delete("sl");
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
   function buildShortlistExport(rows = [], exportedAt = new Date().toISOString()) {
     return JSON.stringify(
       {
@@ -490,6 +538,11 @@ const CHTAppLogic = (() => {
     buildShortlistExport,
     parseShortlistImport,
     mergeShortlistRows,
+    encodeWorkspaceShare,
+    decodeWorkspaceShare,
+    buildWorkspaceShareUrl,
+    readWorkspaceShareFromUrl,
+    stripWorkspaceShareParam,
     encodeSearchShare,
     decodeSearchShare,
     buildSearchShareUrl,

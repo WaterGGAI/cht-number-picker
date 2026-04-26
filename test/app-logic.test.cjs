@@ -10,6 +10,11 @@ const {
   buildShortlistExport,
   parseShortlistImport,
   mergeShortlistRows,
+  encodeWorkspaceShare,
+  decodeWorkspaceShare,
+  buildWorkspaceShareUrl,
+  readWorkspaceShareFromUrl,
+  stripWorkspaceShareParam,
   encodeSearchShare,
   decodeSearchShare,
   buildSearchShareUrl,
@@ -400,6 +405,70 @@ test("search share helpers round-trip a normalized draft through URL payloads", 
   assert.equal(stripSearchShareParam(shareUrl), "/?foo=1");
 
   assert.equal(decodeSearchShare("bad-payload", options), null);
+});
+
+test("workspace share helpers round-trip both search draft and shortlist rows", () => {
+  const options = {
+    prefixes: ["0900", "0912"],
+    modes: ["all", "pattern", "fee"],
+    fees: ["480", "1000"],
+    pageLimits: ["1", "3", "5"],
+    filters: ["5", "6", "9"]
+  };
+  const draft = {
+    prefix: "0912",
+    mode: "pattern",
+    pattern: "66??88",
+    fee: "480",
+    pageLimit: "3",
+    filters: ["5"]
+  };
+  const rows = [
+    {
+      number: "0905123456",
+      fee: 480,
+      feeLabel: "選號費",
+      bucket: "一路發",
+      score: { value: 8, reasons: ["順子"] },
+      statusUrl: "https://example.com/status/1"
+    }
+  ];
+
+  const encoded = encodeWorkspaceShare(draft, rows, options);
+  assert.deepEqual(decodeWorkspaceShare(encoded, options), {
+    draft: {
+      prefix: "0912",
+      mode: "pattern",
+      pattern: "66xx88",
+      fee: "480",
+      pageLimit: "3",
+      filters: ["5"]
+    },
+    rows: normalizeShortlistRows(rows)
+  });
+
+  const shareUrl = buildWorkspaceShareUrl(
+    draft,
+    rows,
+    "https://cht-number-picker.pages.dev/?foo=1&sd=old&sl=old",
+    options
+  );
+  assert.match(shareUrl, /[?&]ws=/);
+  assert.equal(shareUrl.includes("sd="), false);
+  assert.equal(shareUrl.includes("sl="), false);
+  assert.deepEqual(readWorkspaceShareFromUrl(shareUrl, options), {
+    draft: {
+      prefix: "0912",
+      mode: "pattern",
+      pattern: "66xx88",
+      fee: "480",
+      pageLimit: "3",
+      filters: ["5"]
+    },
+    rows: normalizeShortlistRows(rows)
+  });
+  assert.equal(stripWorkspaceShareParam(shareUrl), "/?foo=1");
+  assert.equal(decodeWorkspaceShare("bad-workspace", options), null);
 });
 
 test("shortlist import/export helpers support json payloads and plain text lists", () => {

@@ -85,7 +85,15 @@
 
           <div class="actions">
             <button id="submit-button" class="primary-button" type="submit">查詢門號</button>
-            <button id="search-share" class="ghost-button" type="button">分享</button>
+            <button
+              id="search-share"
+              class="ghost-button"
+              type="button"
+              title="分享查詢條件與收藏清單"
+              aria-label="分享查詢條件與收藏清單"
+            >
+              整組
+            </button>
             <button id="clear-button" class="ghost-button" type="button">清除</button>
           </div>
         </form>
@@ -128,10 +136,10 @@
                 id="shortlist-share"
                 class="text-button"
                 type="button"
-                title="分享收藏連結"
-                aria-label="分享收藏連結"
+                title="只分享收藏清單"
+                aria-label="只分享收藏清單"
               >
-                分享
+                清單
               </button>
               <button id="shortlist-export" class="text-button" type="button">匯出</button>
               <button id="shortlist-import" class="text-button" type="button">匯入</button>
