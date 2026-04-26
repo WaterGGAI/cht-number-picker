@@ -332,6 +332,94 @@ const CHTAppLogic = (() => {
     return normalizeShortlistRows([...importedRows, ...existingRows]);
   }
 
+  function encodeBase64Url(text) {
+    const bytes = new TextEncoder().encode(String(text || ""));
+    const base64 =
+      typeof Buffer !== "undefined"
+        ? Buffer.from(bytes).toString("base64")
+        : btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(""));
+    return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+  }
+
+  function decodeBase64Url(value) {
+    const input = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+    const padded = input + "=".repeat((4 - (input.length % 4 || 4)) % 4);
+    if (typeof Buffer !== "undefined") {
+      return Buffer.from(padded, "base64").toString("utf8");
+    }
+    const binary = atob(padded);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  }
+
+  function packShortlistShareRow(row) {
+    return {
+      n: row.number,
+      f: row.fee,
+      l: row.feeLabel,
+      b: row.bucket,
+      s: row.score ? [row.score.value || 0, row.score.reasons || []] : null,
+      u: row.statusUrl
+    };
+  }
+
+  function unpackShortlistShareRow(row) {
+    if (!row || typeof row !== "object") return row;
+    return {
+      number: row.n,
+      fee: row.f,
+      feeLabel: row.l,
+      bucket: row.b,
+      score: Array.isArray(row.s)
+        ? {
+            value: Number(row.s[0]) || 0,
+            reasons: Array.isArray(row.s[1]) ? row.s[1] : []
+          }
+        : null,
+      statusUrl: row.u
+    };
+  }
+
+  function encodeShortlistShare(rows = []) {
+    const payload = {
+      v: 1,
+      r: normalizeShortlistRows(rows).map((row) => packShortlistShareRow(row))
+    };
+    return encodeBase64Url(JSON.stringify(payload));
+  }
+
+  function decodeShortlistShare(value) {
+    if (!value) return [];
+    try {
+      const parsed = JSON.parse(decodeBase64Url(value));
+      const rows = Array.isArray(parsed?.r)
+        ? parsed.r.map((row) => unpackShortlistShareRow(row))
+        : Array.isArray(parsed?.rows)
+          ? parsed.rows
+          : [];
+      return normalizeShortlistRows(rows);
+    } catch {
+      return [];
+    }
+  }
+
+  function buildShortlistShareUrl(rows = [], currentUrl) {
+    const url = new URL(currentUrl || "https://example.com/");
+    url.searchParams.set("sl", encodeShortlistShare(rows));
+    return url.toString();
+  }
+
+  function readShortlistShareFromUrl(currentUrl) {
+    const url = new URL(currentUrl || "https://example.com/");
+    return decodeShortlistShare(url.searchParams.get("sl"));
+  }
+
+  function stripShortlistShareParam(currentUrl) {
+    const url = new URL(currentUrl || "https://example.com/");
+    url.searchParams.delete("sl");
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
   return {
     cloneRows,
     clonePagination,
@@ -341,6 +429,11 @@ const CHTAppLogic = (() => {
     buildShortlistExport,
     parseShortlistImport,
     mergeShortlistRows,
+    encodeShortlistShare,
+    decodeShortlistShare,
+    buildShortlistShareUrl,
+    readShortlistShareFromUrl,
+    stripShortlistShareParam,
     dedupeDisplayRows,
     sortShortlistRows,
     sortRows,

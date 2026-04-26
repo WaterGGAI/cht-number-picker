@@ -56,6 +56,7 @@ const categoryGroups = document.querySelector("#category-groups");
 const shortlistList = document.querySelector("#shortlist-list");
 const shortlistSortInput = document.querySelector("#shortlist-sort");
 const shortlistCopyButton = document.querySelector("#shortlist-copy");
+const shortlistShareButton = document.querySelector("#shortlist-share");
 const shortlistExportButton = document.querySelector("#shortlist-export");
 const shortlistImportButton = document.querySelector("#shortlist-import");
 const shortlistClearButton = document.querySelector("#shortlist-clear");
@@ -79,6 +80,9 @@ const {
   buildShortlistExport,
   parseShortlistImport,
   mergeShortlistRows,
+  buildShortlistShareUrl,
+  readShortlistShareFromUrl,
+  stripShortlistShareParam,
   dedupeDisplayRows,
   sortShortlistRows,
   sortRows: sortResultRows,
@@ -248,6 +252,7 @@ function openStatusWindow(row) {
 
 function renderShortlist() {
   shortlistCopyButton.disabled = state.shortlist.length === 0;
+  shortlistShareButton.disabled = state.shortlist.length === 0;
   shortlistExportButton.disabled = state.shortlist.length === 0;
   shortlistClearButton.disabled = state.shortlist.length === 0;
 
@@ -330,6 +335,44 @@ function exportShortlist() {
   anchor.remove();
   URL.revokeObjectURL(url);
   flashButtonLabel(shortlistExportButton, "已匯出", "匯出");
+}
+
+async function shareShortlist() {
+  if (!state.shortlist.length) return;
+
+  const shareUrl = buildShortlistShareUrl(sortedShortlist(), window.location.href);
+  if (shareUrl.length > 3500) {
+    flashButtonLabel(shortlistShareButton, "清單太長", "分享", 1800);
+    return;
+  }
+
+  const shareData = {
+    title: "中華電信門號快選",
+    text: "這是我整理的待選門號清單。",
+    url: shareUrl
+  };
+
+  try {
+    if (typeof navigator.share === "function") {
+      await navigator.share(shareData);
+      flashButtonLabel(shortlistShareButton, "已分享", "分享", 1600);
+      return;
+    }
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      flashButtonLabel(shortlistShareButton, "已取消", "分享", 1200);
+      return;
+    }
+    console.warn("Navigator share failed", error);
+  }
+
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    flashButtonLabel(shortlistShareButton, "已複製連結", "分享", 1800);
+  } catch (error) {
+    flashButtonLabel(shortlistShareButton, "無法分享", "分享", 1800);
+    console.warn("Shortlist share copy failed", error);
+  }
 }
 
 async function importShortlistFile(file) {
@@ -951,6 +994,18 @@ function clearForm() {
   saveSnapshot("free");
 }
 
+function applyShortlistShareFromUrl() {
+  const sharedRows = readShortlistShareFromUrl(window.location.href);
+  if (!sharedRows.length) return false;
+
+  state.shortlist = sharedRows;
+  saveShortlist();
+  if (window.location.search.includes("sl=")) {
+    history.replaceState({}, "", stripShortlistShareParam(window.location.href));
+  }
+  return true;
+}
+
 async function registerServiceWorker() {
   if (!("serviceWorker" in navigator)) return;
   try {
@@ -1069,6 +1124,9 @@ shortlistClearButton.addEventListener("click", () => {
 shortlistCopyButton.addEventListener("click", () => {
   copyShortlist();
 });
+shortlistShareButton.addEventListener("click", () => {
+  shareShortlist();
+});
 shortlistExportButton.addEventListener("click", () => {
   exportShortlist();
 });
@@ -1105,7 +1163,11 @@ loadConfig()
     syncDisplayMode();
     setStatusVisible(false);
     renderEmpty(DEFAULT_EMPTY_STATE.title, DEFAULT_EMPTY_STATE.detail);
+    const loadedSharedShortlist = applyShortlistShareFromUrl();
     renderShortlist();
+    if (loadedSharedShortlist) {
+      flashButtonLabel(shortlistShareButton, "已載入連結", "分享", 1800);
+    }
     persistSearchDraft();
     saveSnapshot("free");
   })

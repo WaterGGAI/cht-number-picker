@@ -10,6 +10,11 @@ const {
   buildShortlistExport,
   parseShortlistImport,
   mergeShortlistRows,
+  encodeShortlistShare,
+  decodeShortlistShare,
+  buildShortlistShareUrl,
+  readShortlistShareFromUrl,
+  stripShortlistShareParam,
   dedupeDisplayRows,
   sortShortlistRows,
   sortRows,
@@ -396,4 +401,36 @@ test("shortlist import/export helpers support json payloads and plain text lists
     ).map((row) => row.number),
     ["0905111111", "0905000001"]
   );
+});
+
+test("shortlist share helpers round-trip rows through a compact URL payload", () => {
+  const rows = [
+    {
+      number: "0912111222",
+      fee: 480,
+      feeLabel: "選號費",
+      bucket: "一路發",
+      score: { value: 9, reasons: ["順子"] },
+      statusUrl: "https://example.com/status/1"
+    },
+    {
+      number: "0905987654",
+      fee: null,
+      feeLabel: null,
+      bucket: null,
+      score: null,
+      statusUrl: null
+    }
+  ];
+
+  const encoded = encodeShortlistShare(rows);
+  const decoded = decodeShortlistShare(encoded);
+  assert.deepEqual(decoded, normalizeShortlistRows(rows));
+
+  const shareUrl = buildShortlistShareUrl(rows, "https://cht-number-picker.pages.dev/?foo=1");
+  assert.match(shareUrl, /[?&]sl=/);
+  assert.deepEqual(readShortlistShareFromUrl(shareUrl), normalizeShortlistRows(rows));
+  assert.equal(stripShortlistShareParam(shareUrl), "/?foo=1");
+
+  assert.deepEqual(decodeShortlistShare("not-valid"), []);
 });
