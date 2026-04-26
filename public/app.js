@@ -80,6 +80,7 @@ const shareDialogMeta = document.querySelector("#share-dialog-meta");
 const shareDialogQr = document.querySelector("#share-dialog-qr");
 const shareDialogLink = document.querySelector("#share-dialog-link");
 const shareDialogCopyButton = document.querySelector("#share-dialog-copy");
+const shareDialogCopyImageButton = document.querySelector("#share-dialog-copy-image");
 const shareDialogDownloadButton = document.querySelector("#share-dialog-download");
 const shareDialogOpenLink = document.querySelector("#share-dialog-open");
 const shareDialogCloseButton = document.querySelector("#share-dialog-close");
@@ -124,6 +125,7 @@ let qrCodeModulePromise = null;
 let activeShareDialogUrl = "";
 let activeShareDialogSvg = "";
 let activeShareDialogFileBase = "cht-share";
+let activeShareDialogPngBlobPromise = null;
 
 function loadShortlist() {
   try {
@@ -185,6 +187,10 @@ function flashButtonLabel(button, text, fallback, delay = 1200) {
 
 function hasNativeShare() {
   return typeof navigator.share === "function";
+}
+
+function canCopyImageToClipboard() {
+  return Boolean(window.ClipboardItem && navigator.clipboard?.write);
 }
 
 async function loadQrCodeModule() {
@@ -282,10 +288,22 @@ function downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+async function getShareDialogPngBlob() {
+  if (!activeShareDialogSvg) return null;
+  if (!activeShareDialogPngBlobPromise) {
+    activeShareDialogPngBlobPromise = svgToPngBlob(activeShareDialogSvg).catch((error) => {
+      activeShareDialogPngBlobPromise = null;
+      throw error;
+    });
+  }
+  return await activeShareDialogPngBlobPromise;
+}
+
 function resetShareDialog() {
   activeShareDialogUrl = "";
   activeShareDialogSvg = "";
   activeShareDialogFileBase = "cht-share";
+  activeShareDialogPngBlobPromise = null;
   shareDialogKicker.textContent = "分享連結";
   shareDialogTitle.textContent = "短版分享";
   shareDialogDescription.textContent = "";
@@ -295,6 +313,9 @@ function resetShareDialog() {
   shareDialogOpenLink.href = "/";
   clearTimeout(shareDialogCopyButton._flashTimeout);
   shareDialogCopyButton.textContent = "複製連結";
+  clearTimeout(shareDialogCopyImageButton._flashTimeout);
+  shareDialogCopyImageButton.textContent = "複製 QR";
+  shareDialogCopyImageButton.disabled = true;
   clearTimeout(shareDialogDownloadButton._flashTimeout);
   shareDialogDownloadButton.textContent = "下載 QR";
   shareDialogDownloadButton.disabled = true;
@@ -306,6 +327,7 @@ async function openShareDialog({ kicker, title, description, meta, url }) {
   activeShareDialogUrl = url;
   activeShareDialogSvg = "";
   activeShareDialogFileBase = slugifyShareTitle(title);
+  activeShareDialogPngBlobPromise = null;
   shareDialogKicker.textContent = kicker || "分享連結";
   shareDialogTitle.textContent = title || "短版分享";
   shareDialogDescription.textContent = description || "";
@@ -313,6 +335,8 @@ async function openShareDialog({ kicker, title, description, meta, url }) {
   shareDialogLink.value = url;
   shareDialogOpenLink.href = url;
   shareDialogQr.textContent = "產生 QR 中...";
+  shareDialogCopyImageButton.disabled = true;
+  shareDialogCopyImageButton.textContent = "複製 QR";
   shareDialogDownloadButton.disabled = true;
   shareDialogDownloadButton.textContent = "下載 QR";
 
@@ -325,10 +349,12 @@ async function openShareDialog({ kicker, title, description, meta, url }) {
     if (activeShareDialogUrl !== url) return true;
     activeShareDialogSvg = svg;
     shareDialogQr.innerHTML = svg;
+    shareDialogCopyImageButton.disabled = false;
     shareDialogDownloadButton.disabled = false;
   } catch (error) {
     if (activeShareDialogUrl === url) {
       shareDialogQr.textContent = "QR 暫時載不出來，下面的短版連結還是可以直接複製。";
+      shareDialogCopyImageButton.disabled = true;
       shareDialogDownloadButton.disabled = true;
     }
     console.warn("QR render failed", error);
@@ -348,11 +374,43 @@ async function copyShareDialogLink() {
   }
 }
 
+async function copyShareDialogImage() {
+  if (!activeShareDialogSvg) return;
+  shareDialogCopyImageButton.disabled = true;
+  try {
+    const blob = await getShareDialogPngBlob();
+    if (!blob) {
+      throw new Error("QR PNG unavailable");
+    }
+    if (canCopyImageToClipboard()) {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          "image/png": blob
+        })
+      ]);
+      flashButtonLabel(shareDialogCopyImageButton, "已複製", "複製 QR", 1800);
+      return;
+    }
+    downloadBlob(blob, `${activeShareDialogFileBase || "cht-share"}-qr.png`);
+    flashButtonLabel(shareDialogCopyImageButton, "改下載", "複製 QR", 1800);
+  } catch (error) {
+    flashButtonLabel(shareDialogCopyImageButton, "失敗", "複製 QR", 1800);
+    console.warn("QR image copy failed", error);
+  } finally {
+    if (activeShareDialogSvg) {
+      shareDialogCopyImageButton.disabled = false;
+    }
+  }
+}
+
 async function downloadShareDialogQr() {
   if (!activeShareDialogSvg) return;
   shareDialogDownloadButton.disabled = true;
   try {
-    const blob = await svgToPngBlob(activeShareDialogSvg);
+    const blob = await getShareDialogPngBlob();
+    if (!blob) {
+      throw new Error("QR PNG unavailable");
+    }
     downloadBlob(blob, `${activeShareDialogFileBase || "cht-share"}-qr.png`);
     flashButtonLabel(shareDialogDownloadButton, "已下載", "下載 QR", 1800);
   } catch (error) {
@@ -1470,6 +1528,9 @@ sortButton.addEventListener("click", () => {
 });
 shareDialogCopyButton.addEventListener("click", () => {
   copyShareDialogLink();
+});
+shareDialogCopyImageButton.addEventListener("click", () => {
+  copyShareDialogImage();
 });
 shareDialogDownloadButton.addEventListener("click", () => {
   downloadShareDialogQr();
