@@ -80,6 +80,7 @@ const shareDialogMeta = document.querySelector("#share-dialog-meta");
 const shareDialogQr = document.querySelector("#share-dialog-qr");
 const shareDialogLink = document.querySelector("#share-dialog-link");
 const shareDialogCopyButton = document.querySelector("#share-dialog-copy");
+const shareDialogDownloadButton = document.querySelector("#share-dialog-download");
 const shareDialogOpenLink = document.querySelector("#share-dialog-open");
 const shareDialogCloseButton = document.querySelector("#share-dialog-close");
 const resultTemplate = document.querySelector("#result-template");
@@ -121,6 +122,8 @@ const QR_MODULE_URL = "https://esm.sh/qrcode@1.5.4?bundle";
 
 let qrCodeModulePromise = null;
 let activeShareDialogUrl = "";
+let activeShareDialogSvg = "";
+let activeShareDialogFileBase = "cht-share";
 
 function loadShortlist() {
   try {
@@ -222,8 +225,67 @@ async function buildQrSvg(url) {
   });
 }
 
+function slugifyShareTitle(title = "") {
+  const text = String(title || "").trim().toLowerCase();
+  return (
+    text
+      .replace(/[^a-z0-9\u4e00-\u9fff]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 32) || "cht-share"
+  );
+}
+
+async function svgToPngBlob(svg, size = 960) {
+  const svgBlob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+  const svgUrl = URL.createObjectURL(svgBlob);
+  try {
+    const image = await new Promise((resolve, reject) => {
+      const node = new Image();
+      node.onload = () => resolve(node);
+      node.onerror = () => reject(new Error("QR image load failed"));
+      node.src = svgUrl;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Canvas context unavailable");
+    }
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, size, size);
+    context.drawImage(image, 0, 0, size, size);
+
+    return await new Promise((resolve, reject) => {
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("QR canvas export failed"));
+          return;
+        }
+        resolve(blob);
+      }, "image/png");
+    });
+  } finally {
+    URL.revokeObjectURL(svgUrl);
+  }
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
 function resetShareDialog() {
   activeShareDialogUrl = "";
+  activeShareDialogSvg = "";
+  activeShareDialogFileBase = "cht-share";
   shareDialogKicker.textContent = "分享連結";
   shareDialogTitle.textContent = "短版分享";
   shareDialogDescription.textContent = "";
@@ -233,12 +295,17 @@ function resetShareDialog() {
   shareDialogOpenLink.href = "/";
   clearTimeout(shareDialogCopyButton._flashTimeout);
   shareDialogCopyButton.textContent = "複製連結";
+  clearTimeout(shareDialogDownloadButton._flashTimeout);
+  shareDialogDownloadButton.textContent = "下載 QR";
+  shareDialogDownloadButton.disabled = true;
 }
 
 async function openShareDialog({ kicker, title, description, meta, url }) {
   if (!shareDialog?.showModal) return false;
 
   activeShareDialogUrl = url;
+  activeShareDialogSvg = "";
+  activeShareDialogFileBase = slugifyShareTitle(title);
   shareDialogKicker.textContent = kicker || "分享連結";
   shareDialogTitle.textContent = title || "短版分享";
   shareDialogDescription.textContent = description || "";
@@ -246,6 +313,8 @@ async function openShareDialog({ kicker, title, description, meta, url }) {
   shareDialogLink.value = url;
   shareDialogOpenLink.href = url;
   shareDialogQr.textContent = "產生 QR 中...";
+  shareDialogDownloadButton.disabled = true;
+  shareDialogDownloadButton.textContent = "下載 QR";
 
   if (!shareDialog.open) {
     shareDialog.showModal();
@@ -254,10 +323,13 @@ async function openShareDialog({ kicker, title, description, meta, url }) {
   try {
     const svg = await buildQrSvg(url);
     if (activeShareDialogUrl !== url) return true;
+    activeShareDialogSvg = svg;
     shareDialogQr.innerHTML = svg;
+    shareDialogDownloadButton.disabled = false;
   } catch (error) {
     if (activeShareDialogUrl === url) {
       shareDialogQr.textContent = "QR 暫時載不出來，下面的短版連結還是可以直接複製。";
+      shareDialogDownloadButton.disabled = true;
     }
     console.warn("QR render failed", error);
   }
@@ -273,6 +345,23 @@ async function copyShareDialogLink() {
   } catch (error) {
     flashButtonLabel(shareDialogCopyButton, "失敗", "複製連結", 1600);
     console.warn("Share dialog copy failed", error);
+  }
+}
+
+async function downloadShareDialogQr() {
+  if (!activeShareDialogSvg) return;
+  shareDialogDownloadButton.disabled = true;
+  try {
+    const blob = await svgToPngBlob(activeShareDialogSvg);
+    downloadBlob(blob, `${activeShareDialogFileBase || "cht-share"}-qr.png`);
+    flashButtonLabel(shareDialogDownloadButton, "已下載", "下載 QR", 1800);
+  } catch (error) {
+    flashButtonLabel(shareDialogDownloadButton, "失敗", "下載 QR", 1800);
+    console.warn("QR download failed", error);
+  } finally {
+    if (activeShareDialogSvg) {
+      shareDialogDownloadButton.disabled = false;
+    }
   }
 }
 
@@ -1381,6 +1470,9 @@ sortButton.addEventListener("click", () => {
 });
 shareDialogCopyButton.addEventListener("click", () => {
   copyShareDialogLink();
+});
+shareDialogDownloadButton.addEventListener("click", () => {
+  downloadShareDialogQr();
 });
 shareDialogCloseButton.addEventListener("click", () => {
   closeShareDialog();
