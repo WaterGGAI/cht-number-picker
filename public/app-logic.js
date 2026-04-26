@@ -28,6 +28,60 @@ const CHTAppLogic = (() => {
     return groups.map((group) => ({ ...group }));
   }
 
+  function normalizeNumber(value) {
+    const digits = String(value || "").replace(/\D/g, "");
+    return digits.length === 10 ? digits : "";
+  }
+
+  function normalizeScore(score) {
+    if (!score || typeof score !== "object") return null;
+    return {
+      value: Number(score.value) || 0,
+      reasons: Array.isArray(score.reasons) ? score.reasons.map(String).filter(Boolean) : []
+    };
+  }
+
+  function normalizeShortlistRow(row) {
+    const number =
+      typeof row === "string" || typeof row === "number"
+        ? normalizeNumber(row)
+        : normalizeNumber(row?.number);
+    if (!number) return null;
+
+    const score = normalizeScore(typeof row === "object" ? row?.score : null);
+    const feeValue =
+      typeof row === "object" && row?.fee !== undefined && row?.fee !== null ? Number(row.fee) : null;
+
+    return {
+      number,
+      fee: Number.isFinite(feeValue) ? feeValue : null,
+      feeLabel:
+        typeof row === "object" && typeof row?.feeLabel === "string" && row.feeLabel.trim()
+          ? row.feeLabel.trim()
+          : null,
+      bucket:
+        typeof row === "object" && typeof row?.bucket === "string" && row.bucket.trim()
+          ? row.bucket.trim()
+          : null,
+      score,
+      statusUrl:
+        typeof row === "object" && typeof row?.statusUrl === "string" && row.statusUrl.trim()
+          ? row.statusUrl.trim()
+          : null
+    };
+  }
+
+  function normalizeShortlistRows(rows = []) {
+    const seen = new Set();
+    return rows
+      .map((row) => normalizeShortlistRow(row))
+      .filter((row) => {
+        if (!row || seen.has(row.number)) return false;
+        seen.add(row.number);
+        return true;
+      });
+  }
+
   function dedupeDisplayRows(rows) {
     const seen = new Set();
     return rows.filter((row) => {
@@ -209,6 +263,7 @@ const CHTAppLogic = (() => {
   }
 
   function normalizeSearchDraft(draft = {}, options = {}) {
+    const source = draft && typeof draft === "object" ? draft : {};
     const prefixes = Array.isArray(options.prefixes) ? options.prefixes.map(String) : [];
     const modes = Array.isArray(options.modes) ? options.modes.map(String) : ["all", "pattern", "fee"];
     const fees = Array.isArray(options.fees) ? options.fees.map(String) : ["480", "1000"];
@@ -217,27 +272,75 @@ const CHTAppLogic = (() => {
       Array.isArray(options.filters) ? options.filters.map(String) : []
     );
 
-    const uniqueFilters = [...new Set(Array.isArray(draft.filters) ? draft.filters.map(String) : [])]
+    const uniqueFilters = [...new Set(Array.isArray(source.filters) ? source.filters.map(String) : [])]
       .filter((value) => allowedFilters.has(value));
 
     return {
       prefix:
-        prefixes.includes(String(draft.prefix)) ? String(draft.prefix) : prefixes[0] || "0900",
-      mode: modes.includes(String(draft.mode)) ? String(draft.mode) : modes[0] || "all",
-      pattern: normalizePattern(draft.pattern),
-      fee: fees.includes(String(draft.fee)) ? String(draft.fee) : fees[0] || "480",
+        prefixes.includes(String(source.prefix)) ? String(source.prefix) : prefixes[0] || "0900",
+      mode: modes.includes(String(source.mode)) ? String(source.mode) : modes[0] || "all",
+      pattern: normalizePattern(source.pattern),
+      fee: fees.includes(String(source.fee)) ? String(source.fee) : fees[0] || "480",
       pageLimit:
-        pageLimits.includes(String(draft.pageLimit))
-          ? String(draft.pageLimit)
+        pageLimits.includes(String(source.pageLimit))
+          ? String(source.pageLimit)
           : pageLimits[0] || "1",
       filters: uniqueFilters
     };
+  }
+
+  function buildShortlistExport(rows = [], exportedAt = new Date().toISOString()) {
+    return JSON.stringify(
+      {
+        version: 1,
+        exportedAt,
+        rows: normalizeShortlistRows(rows)
+      },
+      null,
+      2
+    );
+  }
+
+  function parseShortlistImport(raw) {
+    const text = String(raw || "").trim();
+    if (!text) return [];
+
+    let sourceRows = null;
+
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        sourceRows = parsed;
+      } else if (parsed && Array.isArray(parsed.rows)) {
+        sourceRows = parsed.rows;
+      }
+    } catch {
+      sourceRows = null;
+    }
+
+    if (!sourceRows) {
+      sourceRows = text
+        .split(/\r?\n+/)
+        .map((line) => line.trim())
+        .filter(Boolean);
+    }
+
+    return normalizeShortlistRows(sourceRows);
+  }
+
+  function mergeShortlistRows(existingRows = [], importedRows = []) {
+    return normalizeShortlistRows([...importedRows, ...existingRows]);
   }
 
   return {
     cloneRows,
     clonePagination,
     cloneCategoryGroups,
+    normalizeShortlistRow,
+    normalizeShortlistRows,
+    buildShortlistExport,
+    parseShortlistImport,
+    mergeShortlistRows,
     dedupeDisplayRows,
     sortShortlistRows,
     sortRows,

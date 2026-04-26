@@ -5,6 +5,11 @@ const {
   cloneRows,
   clonePagination,
   cloneCategoryGroups,
+  normalizeShortlistRow,
+  normalizeShortlistRows,
+  buildShortlistExport,
+  parseShortlistImport,
+  mergeShortlistRows,
   dedupeDisplayRows,
   sortShortlistRows,
   sortRows,
@@ -45,6 +50,45 @@ test("sortShortlistRows respects added, number, and score modes", () => {
   assert.deepEqual(
     sortShortlistRows(rows, "score").map((row) => row.number),
     ["0905000001", "0905888888", "0905123456"]
+  );
+});
+
+test("shortlist helpers normalize rows and preserve richer metadata", () => {
+  assert.deepEqual(normalizeShortlistRow("0905 123 456"), {
+    number: "0905123456",
+    fee: null,
+    feeLabel: null,
+    bucket: null,
+    score: null,
+    statusUrl: null
+  });
+
+  assert.equal(normalizeShortlistRow("12345"), null);
+
+  assert.deepEqual(
+    normalizeShortlistRows([
+      { number: "0905123456", fee: "480", feeLabel: "選號費", bucket: "一路發", score: { value: "8", reasons: ["順子"] } },
+      "0905-123-456",
+      { number: "0905987654", statusUrl: "https://example.com/status" }
+    ]),
+    [
+      {
+        number: "0905123456",
+        fee: 480,
+        feeLabel: "選號費",
+        bucket: "一路發",
+        score: { value: 8, reasons: ["順子"] },
+        statusUrl: null
+      },
+      {
+        number: "0905987654",
+        fee: null,
+        feeLabel: null,
+        bucket: null,
+        score: null,
+        statusUrl: "https://example.com/status"
+      }
+    ]
   );
 });
 
@@ -284,5 +328,72 @@ test("normalizeSearchDraft keeps allowed choices and restores safe defaults", ()
       pageLimit: "1",
       filters: []
     }
+  );
+
+  assert.deepEqual(
+    normalizeSearchDraft(null, {
+      prefixes: ["0900", "0912"],
+      modes: ["all", "pattern", "fee"],
+      fees: ["480", "1000"],
+      pageLimits: ["1", "3", "5"],
+      filters: ["f5", "f9"]
+    }),
+    {
+      prefix: "0900",
+      mode: "all",
+      pattern: "",
+      fee: "480",
+      pageLimit: "1",
+      filters: []
+    }
+  );
+});
+
+test("shortlist import/export helpers support json payloads and plain text lists", () => {
+  const exported = buildShortlistExport([
+    { number: "0905123456", fee: 480, score: { value: 8, reasons: ["順子"] } }
+  ], "2026-04-26T02:00:00.000Z");
+
+  assert.match(exported, /"exportedAt": "2026-04-26T02:00:00.000Z"/);
+
+  assert.deepEqual(parseShortlistImport(exported), [
+    {
+      number: "0905123456",
+      fee: 480,
+      feeLabel: null,
+      bucket: null,
+      score: { value: 8, reasons: ["順子"] },
+      statusUrl: null
+    }
+  ]);
+
+  assert.deepEqual(parseShortlistImport("0905 123 456\n0905-987-654\n0905 123 456"), [
+    {
+      number: "0905123456",
+      fee: null,
+      feeLabel: null,
+      bucket: null,
+      score: null,
+      statusUrl: null
+    },
+    {
+      number: "0905987654",
+      fee: null,
+      feeLabel: null,
+      bucket: null,
+      score: null,
+      statusUrl: null
+    }
+  ]);
+
+  assert.deepEqual(
+    mergeShortlistRows(
+      [{ number: "0905000001", fee: 480 }],
+      [
+        { number: "0905111111", fee: 1000 },
+        { number: "0905000001", fee: 480 }
+      ]
+    ).map((row) => row.number),
+    ["0905111111", "0905000001"]
   );
 });

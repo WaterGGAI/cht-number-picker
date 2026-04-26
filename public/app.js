@@ -56,7 +56,10 @@ const categoryGroups = document.querySelector("#category-groups");
 const shortlistList = document.querySelector("#shortlist-list");
 const shortlistSortInput = document.querySelector("#shortlist-sort");
 const shortlistCopyButton = document.querySelector("#shortlist-copy");
+const shortlistExportButton = document.querySelector("#shortlist-export");
+const shortlistImportButton = document.querySelector("#shortlist-import");
 const shortlistClearButton = document.querySelector("#shortlist-clear");
+const shortlistImportFile = document.querySelector("#shortlist-import-file");
 const pager = document.querySelector("#pager");
 const results = document.querySelector("#results");
 const statusLine = document.querySelector("#status-line");
@@ -72,6 +75,10 @@ const {
   cloneRows,
   clonePagination,
   cloneCategoryGroups,
+  normalizeShortlistRows,
+  buildShortlistExport,
+  parseShortlistImport,
+  mergeShortlistRows,
   dedupeDisplayRows,
   sortShortlistRows,
   sortRows: sortResultRows,
@@ -92,13 +99,16 @@ const mobileMedia = window.matchMedia("(max-width: 640px)");
 
 function loadShortlist() {
   try {
-    return JSON.parse(localStorage.getItem(SHORTLIST_STORAGE_KEY) || "[]");
+    return window.CHTAppLogic.normalizeShortlistRows(
+      JSON.parse(localStorage.getItem(SHORTLIST_STORAGE_KEY) || "[]")
+    );
   } catch {
     return [];
   }
 }
 
 function saveShortlist() {
+  state.shortlist = normalizeShortlistRows(state.shortlist);
   localStorage.setItem(SHORTLIST_STORAGE_KEY, JSON.stringify(state.shortlist));
 }
 
@@ -135,6 +145,14 @@ function setDisplayMode(mode) {
   state.displayMode = mode === "grid" ? "grid" : "list";
   saveDisplayMode();
   syncDisplayMode();
+}
+
+function flashButtonLabel(button, text, fallback, delay = 1200) {
+  button.textContent = text;
+  clearTimeout(button._flashTimeout);
+  button._flashTimeout = setTimeout(() => {
+    button.textContent = fallback;
+  }, delay);
 }
 
 function getQuickLink(id) {
@@ -230,6 +248,7 @@ function openStatusWindow(row) {
 
 function renderShortlist() {
   shortlistCopyButton.disabled = state.shortlist.length === 0;
+  shortlistExportButton.disabled = state.shortlist.length === 0;
   shortlistClearButton.disabled = state.shortlist.length === 0;
 
   if (!state.shortlist.length) {
@@ -294,10 +313,56 @@ async function copyShortlist() {
 
   const text = sortedShortlist().map((row) => row.number).join("\n");
   await navigator.clipboard.writeText(text);
-  shortlistCopyButton.textContent = "已複製";
-  setTimeout(() => {
-    shortlistCopyButton.textContent = "複製全部";
-  }, 1200);
+  flashButtonLabel(shortlistCopyButton, "已複製", "複製全部");
+}
+
+function exportShortlist() {
+  if (!state.shortlist.length) return;
+  const content = buildShortlistExport(sortedShortlist());
+  const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "").replace("T", "-");
+  const blob = new Blob([content], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `cht-shortlist-${stamp}.json`;
+  document.body.append(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+  flashButtonLabel(shortlistExportButton, "已匯出", "匯出");
+}
+
+async function importShortlistFile(file) {
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const importedRows = parseShortlistImport(text);
+    if (!importedRows.length) {
+      flashButtonLabel(shortlistImportButton, "沒有可匯入", "匯入", 1600);
+      return;
+    }
+
+    const beforeCount = state.shortlist.length;
+    state.shortlist = mergeShortlistRows(state.shortlist, importedRows);
+    saveShortlist();
+    renderShortlist();
+    if (state.rows.length) {
+      renderResults();
+    }
+
+    const addedCount = Math.max(0, state.shortlist.length - beforeCount);
+    flashButtonLabel(
+      shortlistImportButton,
+      addedCount ? `已匯入 ${addedCount}` : "已合併",
+      "匯入",
+      1600
+    );
+  } catch (error) {
+    flashButtonLabel(shortlistImportButton, "匯入失敗", "匯入", 1800);
+    console.warn("Shortlist import failed", error);
+  } finally {
+    shortlistImportFile.value = "";
+  }
 }
 
 function syncQuickLinks() {
@@ -1003,6 +1068,15 @@ shortlistClearButton.addEventListener("click", () => {
 });
 shortlistCopyButton.addEventListener("click", () => {
   copyShortlist();
+});
+shortlistExportButton.addEventListener("click", () => {
+  exportShortlist();
+});
+shortlistImportButton.addEventListener("click", () => {
+  shortlistImportFile.click();
+});
+shortlistImportFile.addEventListener("change", () => {
+  importShortlistFile(shortlistImportFile.files?.[0] || null);
 });
 shortlistSortInput.addEventListener("change", () => {
   state.shortlistSort = shortlistSortInput.value;
