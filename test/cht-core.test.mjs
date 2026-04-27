@@ -120,6 +120,13 @@ test("validateSearch normalizes wildcard input and reports invalid combinations"
   assert.deepEqual(suffix.filters, ["9"]);
   assert.deepEqual(suffix.errors, []);
 
+  const suffixFiveDigits = validateSearch({
+    mode: "suffix",
+    pattern: "12345"
+  });
+  assert.equal(suffixFiveDigits.pattern, "12345");
+  assert.deepEqual(suffixFiveDigits.errors, []);
+
   const invalidSuffix = validateSearch({
     mode: "suffix",
     pattern: "412345",
@@ -129,9 +136,9 @@ test("validateSearch normalizes wildcard input and reports invalid combinations"
 
   const badLengthSuffix = validateSearch({
     mode: "suffix",
-    pattern: "123"
+    pattern: "1"
   });
-  assert.ok(badLengthSuffix.errors.includes("尾數反查需輸入 2、4 或 6 位數字。"));
+  assert.ok(badLengthSuffix.errors.includes("尾數反查需輸入 2、3、4、5 或 6 位數字。"));
 });
 
 test("rewrite helpers preserve official flow under a custom prefix", () => {
@@ -327,4 +334,51 @@ test("runSearchQuery fans out two-digit reverse suffix search across all officia
   assert.match(postCalls[0].options.body.toString(), /tel=0%3F%3F%3F12/);
   assert.match(postCalls[postCalls.length - 1].options.body.toString(), /head4G=0978/);
   assert.match(postCalls[postCalls.length - 1].options.body.toString(), /tel=9%3F%3F%3F12/);
+});
+
+test("runSearchQuery fans out three-digit reverse suffix search across all official prefixes without wildcard expansion", async (t) => {
+  const firstPageHtml = await readFixture("search-results-page-1.html");
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).endsWith("/findAvailable.jsp")) {
+      return htmlResponse("entry", {
+        headers: { "set-cookie": "upstream=entry; Path=/; HttpOnly" }
+      });
+    }
+    if (String(url).endsWith("/findAvailableProc.jsp")) {
+      return htmlResponse(firstPageHtml, {
+        headers: { "set-cookie": "search=pattern; Path=/; HttpOnly" }
+      });
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const input = validateSearch({
+    mode: "suffix",
+    pattern: "123",
+    pageLimit: 1,
+    filters: []
+  });
+
+  const result = await runSearchQuery(input, {
+    createStore: () => new Map(),
+    storeSetCookies,
+    getCookieHeader
+  });
+
+  const postCalls = calls.filter((call) => call.url.endsWith("/findAvailableProc.jsp"));
+  assert.equal(postCalls.length, PREFIXES.length);
+  assert.equal(result.pagesFetched, PREFIXES.length);
+  assert.equal(result.reverseSuffix.officialPattern, "???123");
+  assert.equal(result.reverseSuffix.perPrefixPageLimit, 1);
+  assert.equal(result.reverseSuffix.officialQueryCount, PREFIXES.length);
+  assert.equal(result.reverseSuffix.forcedFirstPage, false);
+  assert.match(postCalls[0].options.body.toString(), /tel=%3F%3F%3F123/);
 });
