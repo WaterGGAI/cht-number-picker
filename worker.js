@@ -229,7 +229,7 @@ async function handleApi(request) {
         ? `找到 ${parsed.rows.length} 筆門號 · 尾數 ${input.pattern} 已掃 ${upstream.reverseSuffix.prefixes.length} 個前綴`
         : `沒有找到符合尾數 ${input.pattern} 的空號`;
       if (upstream.reverseSuffix.forcedFirstPage) {
-        parsed.message += " · 後兩碼先抓每個前綴第 1 頁";
+        parsed.message += " · 此條件先抓每個前綴第 1 頁";
       }
       loadedPages = [1];
       pageRows = { 1: parsed.rows };

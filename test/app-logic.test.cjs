@@ -65,8 +65,10 @@ test("normalizePattern, normalizeSuffix, and toOfficialPattern keep mobile-frien
   assert.equal(normalizePattern("58??58"), "58xx58");
   assert.equal(normalizePattern(" 58Ｘx5?8abc "), "58xx5x");
   assert.equal(normalizeSuffix(" 12-34ab "), "1234");
+  assert.equal(normalizeSuffix(" 56??56abc "), "56xx56");
   assert.equal(normalizeSuffix(" 12-345ab "), "12345");
   assert.equal(normalizeSearchInput("suffix", "12-34ab"), "1234");
+  assert.equal(normalizeSearchInput("suffix", "56??56"), "56xx56");
   assert.equal(normalizeSearchInput("suffix", "12-345ab"), "12345");
   assert.equal(normalizeSearchInput("pattern", "58??58"), "58xx58");
   assert.equal(toOfficialPattern("58xx58"), "58??58");
@@ -497,7 +499,7 @@ test("share summary helpers describe shortlist prefixes and query conditions", (
       {
         prefix: "all09",
         mode: "suffix",
-        pattern: "12345",
+        pattern: "56xx56",
         pageLimit: "1",
         filters: ["5"]
       },
@@ -511,7 +513,7 @@ test("share summary helpers describe shortlist prefixes and query conditions", (
         filterOptions: [{ value: "5", label: "第5碼不含4" }]
       }
     ),
-    ["4筆待選", "待選 0905 / 0912 / 0928 +1", "查詢 全部09", "尾數 12345", "1頁", "第5碼不含4"]
+    ["4筆待選", "待選 0905 / 0912 / 0928 +1", "查詢 全部09", "尾數 56xx56", "1頁", "第5碼不含4"]
   );
 
   assert.deepEqual(buildShareSummary(null, rows), ["4筆待選", "待選 0905 / 0912 / 0928 +1"]);
@@ -715,7 +717,7 @@ test("normalizeSearchDraft keeps allowed choices and restores safe defaults", ()
       {
         prefix: "all09",
         mode: "suffix",
-        pattern: "12-345x",
+        pattern: "56-?x56",
         fee: "480",
         pageLimit: "3",
         filters: ["f9"]
@@ -731,7 +733,7 @@ test("normalizeSearchDraft keeps allowed choices and restores safe defaults", ()
     {
       prefix: "all09",
       mode: "suffix",
-      pattern: "12345",
+      pattern: "56xx56",
       fee: "480",
       pageLimit: "3",
       filters: ["f9"]
@@ -814,7 +816,7 @@ test("search share helpers round-trip a normalized draft through URL payloads", 
   const suffixDraft = {
     prefix: "all09",
     mode: "suffix",
-    pattern: "12345",
+    pattern: "56xx56",
     fee: "480",
     pageLimit: "1",
     filters: ["5"]

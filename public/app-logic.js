@@ -137,7 +137,9 @@ const CHTAppLogic = (() => {
 
   function normalizeSuffix(value) {
     return String(value || "")
-      .replace(/\D/g, "")
+      .replace(/[？?ＸｘX]/g, "x")
+      .replace(/[^\dx]/gi, "")
+      .toLowerCase()
       .slice(0, 6);
   }
 

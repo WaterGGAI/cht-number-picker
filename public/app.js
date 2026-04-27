@@ -1034,8 +1034,8 @@ function syncModeFields() {
   if (patternFieldLabel) {
     patternFieldLabel.textContent = isSuffix ? "尾數反查" : "後六碼";
   }
-  patternInput.placeholder = isSuffix ? "12 / 123 / 1234 / 12345 / 123456" : "58xx58";
-  patternInput.inputMode = isSuffix ? "numeric" : "text";
+  patternInput.placeholder = isSuffix ? "12 / 123 / 56xx56 / 12345 / 123456" : "58xx58";
+  patternInput.inputMode = "text";
 
   if (isSuffix) {
     if (prefixInput.value !== ALL_09_PREFIX) {

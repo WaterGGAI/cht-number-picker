@@ -127,6 +127,13 @@ test("validateSearch normalizes wildcard input and reports invalid combinations"
   assert.equal(suffixFiveDigits.pattern, "12345");
   assert.deepEqual(suffixFiveDigits.errors, []);
 
+  const suffixWildcard = validateSearch({
+    mode: "suffix",
+    pattern: "56??56"
+  });
+  assert.equal(suffixWildcard.pattern, "56xx56");
+  assert.deepEqual(suffixWildcard.errors, []);
+
   const invalidSuffix = validateSearch({
     mode: "suffix",
     pattern: "412345",
@@ -134,11 +141,17 @@ test("validateSearch normalizes wildcard input and reports invalid combinations"
   });
   assert.ok(invalidSuffix.errors.includes("第5碼不含4 和尾數反查條件互斥。"));
 
+  const tooManySuffixWildcards = validateSearch({
+    mode: "suffix",
+    pattern: "x2"
+  });
+  assert.ok(tooManySuffixWildcards.errors.includes("最多支援 4 個 x。"));
+
   const badLengthSuffix = validateSearch({
     mode: "suffix",
     pattern: "1"
   });
-  assert.ok(badLengthSuffix.errors.includes("尾數反查需輸入 2、3、4、5 或 6 位數字。"));
+  assert.ok(badLengthSuffix.errors.includes("尾數反查需輸入 2、3、4、5 或 6 位的數字 / x。"));
 });
 
 test("rewrite helpers preserve official flow under a custom prefix", () => {
@@ -381,4 +394,52 @@ test("runSearchQuery fans out three-digit reverse suffix search across all offic
   assert.equal(result.reverseSuffix.officialQueryCount, PREFIXES.length);
   assert.equal(result.reverseSuffix.forcedFirstPage, false);
   assert.match(postCalls[0].options.body.toString(), /tel=%3F%3F%3F123/);
+});
+
+test("runSearchQuery supports suffix wildcard patterns like 56xx56 across all official prefixes", async (t) => {
+  const firstPageHtml = await readFixture("search-results-page-1.html");
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+
+  globalThis.fetch = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (String(url).endsWith("/findAvailable.jsp")) {
+      return htmlResponse("entry", {
+        headers: { "set-cookie": "upstream=entry; Path=/; HttpOnly" }
+      });
+    }
+    if (String(url).endsWith("/findAvailableProc.jsp")) {
+      return htmlResponse(firstPageHtml, {
+        headers: { "set-cookie": "search=pattern; Path=/; HttpOnly" }
+      });
+    }
+    throw new Error(`Unexpected fetch: ${url}`);
+  };
+
+  t.after(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  const input = validateSearch({
+    mode: "suffix",
+    pattern: "56xx56",
+    pageLimit: 1,
+    filters: []
+  });
+
+  const result = await runSearchQuery(input, {
+    createStore: () => new Map(),
+    storeSetCookies,
+    getCookieHeader
+  });
+
+  const postCalls = calls.filter((call) => call.url.endsWith("/findAvailableProc.jsp"));
+  assert.equal(postCalls.length, PREFIXES.length);
+  assert.equal(result.pagesFetched, PREFIXES.length);
+  assert.equal(result.reverseSuffix.requested, "56xx56");
+  assert.equal(result.reverseSuffix.officialPattern, "56??56");
+  assert.equal(result.reverseSuffix.perPrefixPageLimit, 1);
+  assert.equal(result.reverseSuffix.officialQueryCount, PREFIXES.length);
+  assert.equal(result.reverseSuffix.forcedFirstPage, false);
+  assert.match(postCalls[0].options.body.toString(), /tel=56%3F%3F56/);
 });
