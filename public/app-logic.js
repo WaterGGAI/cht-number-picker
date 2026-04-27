@@ -135,8 +135,18 @@ const CHTAppLogic = (() => {
       .slice(0, 6);
   }
 
+  function normalizeSuffix(value) {
+    return String(value || "")
+      .replace(/\D/g, "")
+      .slice(0, 6);
+  }
+
   function toOfficialPattern(value) {
     return normalizePattern(value).replace(/x/g, "?");
+  }
+
+  function normalizeSearchInput(mode, value) {
+    return String(mode || "") === "suffix" ? normalizeSuffix(value) : normalizePattern(value);
   }
 
   function normalizeNumberCopyFormat(format) {
@@ -356,7 +366,7 @@ const CHTAppLogic = (() => {
   function normalizeSearchDraft(draft = {}, options = {}) {
     const source = draft && typeof draft === "object" ? draft : {};
     const prefixes = Array.isArray(options.prefixes) ? options.prefixes.map(String) : [];
-    const modes = Array.isArray(options.modes) ? options.modes.map(String) : ["all", "pattern", "fee"];
+    const modes = Array.isArray(options.modes) ? options.modes.map(String) : ["all", "pattern", "suffix", "fee"];
     const fees = Array.isArray(options.fees) ? options.fees.map(String) : ["480", "1000"];
     const pageLimits = Array.isArray(options.pageLimits) ? options.pageLimits.map(String) : ["1", "3", "5"];
     const allowedFilters = new Set(
@@ -366,11 +376,12 @@ const CHTAppLogic = (() => {
     const uniqueFilters = [...new Set(Array.isArray(source.filters) ? source.filters.map(String) : [])]
       .filter((value) => allowedFilters.has(value));
 
+    const mode = modes.includes(String(source.mode)) ? String(source.mode) : modes[0] || "all";
     return {
       prefix:
         prefixes.includes(String(source.prefix)) ? String(source.prefix) : prefixes[0] || "0900",
-      mode: modes.includes(String(source.mode)) ? String(source.mode) : modes[0] || "all",
-      pattern: normalizePattern(source.pattern),
+      mode,
+      pattern: normalizeSearchInput(mode, source.pattern),
       fee: fees.includes(String(source.fee)) ? String(source.fee) : fees[0] || "480",
       pageLimit:
         pageLimits.includes(String(source.pageLimit))
@@ -396,6 +407,22 @@ const CHTAppLogic = (() => {
     return map;
   }
 
+  function buildPrefixLabelMap(prefixes = []) {
+    const map = new Map();
+    prefixes.forEach((prefix) => {
+      if (!prefix) return;
+      if (typeof prefix === "object") {
+        const value = String(prefix.value || "").trim();
+        if (!value) return;
+        map.set(value, String(prefix.label || prefix.text || prefix.value).trim());
+        return;
+      }
+      const value = String(prefix).trim();
+      if (value) map.set(value, value);
+    });
+    return map;
+  }
+
   function summarizePrefixes(rows = [], { limit = 3 } = {}) {
     const prefixes = [];
     const seen = new Set();
@@ -414,6 +441,7 @@ const CHTAppLogic = (() => {
     const normalizedRows = normalizeShortlistRows(rows);
     const chips = [];
     const draftValue = draft && typeof draft === "object" ? draft : null;
+    const prefixLabelMap = buildPrefixLabelMap(options.prefixOptions || options.prefixes || []);
 
     if (normalizedRows.length) {
       chips.push({
@@ -435,8 +463,8 @@ const CHTAppLogic = (() => {
 
     if (queryPrefix) {
       chips.push({
-        label: `查詢 ${queryPrefix}`,
-        copyText: queryPrefix
+        label: `查詢 ${prefixLabelMap.get(queryPrefix) || queryPrefix}`,
+        copyText: prefixLabelMap.get(queryPrefix) || queryPrefix
       });
     }
 
@@ -447,6 +475,14 @@ const CHTAppLogic = (() => {
         chips.push({
           label: `後六碼 ${pattern}`,
           copyText: pattern
+        });
+      }
+    } else if (mode === "suffix") {
+      const suffix = normalizeSuffix(draftValue.pattern);
+      if (suffix) {
+        chips.push({
+          label: `尾數 ${suffix}`,
+          copyText: suffix
         });
       }
     } else if (mode === "fee") {
@@ -494,12 +530,14 @@ const CHTAppLogic = (() => {
   const SHARE_MODE_CODES = {
     all: "a",
     pattern: "p",
+    suffix: "s",
     fee: "f"
   };
 
   const SHARE_CODE_MODES = {
     a: "all",
     p: "pattern",
+    s: "suffix",
     f: "fee"
   };
 
@@ -865,6 +903,8 @@ const CHTAppLogic = (() => {
     sortRows,
     buildCategoryGroups,
     normalizePattern,
+    normalizeSuffix,
+    normalizeSearchInput,
     toOfficialPattern,
     normalizeNumberCopyFormat,
     normalizeNumberCopyDetailMode,

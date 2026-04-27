@@ -30,6 +30,8 @@ const {
   sortRows,
   buildCategoryGroups,
   normalizePattern,
+  normalizeSuffix,
+  normalizeSearchInput,
   toOfficialPattern,
   normalizeNumberCopyFormat,
   normalizeNumberCopyDetailMode,
@@ -59,9 +61,12 @@ function toBase64Url(value) {
     .replace(/=+$/g, "");
 }
 
-test("normalizePattern and toOfficialPattern keep mobile-friendly x input stable", () => {
+test("normalizePattern, normalizeSuffix, and toOfficialPattern keep mobile-friendly search input stable", () => {
   assert.equal(normalizePattern("58??58"), "58xx58");
   assert.equal(normalizePattern(" 58Ｘx5?8abc "), "58xx5x");
+  assert.equal(normalizeSuffix(" 12-34ab "), "1234");
+  assert.equal(normalizeSearchInput("suffix", "12-34ab"), "1234");
+  assert.equal(normalizeSearchInput("pattern", "58??58"), "58xx58");
   assert.equal(toOfficialPattern("58xx58"), "58??58");
 });
 
@@ -485,6 +490,28 @@ test("share summary helpers describe shortlist prefixes and query conditions", (
     ["1筆待選", "查詢 0912", "查詢 不拘", "1頁"]
   );
 
+  assert.deepEqual(
+    buildShareSummary(
+      {
+        prefix: "all09",
+        mode: "suffix",
+        pattern: "1234",
+        pageLimit: "1",
+        filters: ["5"]
+      },
+      rows,
+      {
+        prefixOptions: [
+          { value: "0905", label: "0905" },
+          { value: "0912", label: "0912" },
+          { value: "all09", label: "全部09" }
+        ],
+        filterOptions: [{ value: "5", label: "第5碼不含4" }]
+      }
+    ),
+    ["4筆待選", "待選 0905 / 0912 / 0928 +1", "查詢 全部09", "尾數 1234", "1頁", "第5碼不含4"]
+  );
+
   assert.deepEqual(buildShareSummary(null, rows), ["4筆待選", "待選 0905 / 0912 / 0928 +1"]);
 });
 
@@ -682,9 +709,37 @@ test("normalizeSearchDraft keeps allowed choices and restores safe defaults", ()
   );
 
   assert.deepEqual(
+    normalizeSearchDraft(
+      {
+        prefix: "all09",
+        mode: "suffix",
+        pattern: "12-34x",
+        fee: "480",
+        pageLimit: "3",
+        filters: ["f9"]
+      },
+      {
+        prefixes: ["0900", "0912", "all09"],
+        modes: ["all", "pattern", "suffix", "fee"],
+        fees: ["480", "1000"],
+        pageLimits: ["1", "3", "5"],
+        filters: ["f5", "f9"]
+      }
+    ),
+    {
+      prefix: "all09",
+      mode: "suffix",
+      pattern: "1234",
+      fee: "480",
+      pageLimit: "3",
+      filters: ["f9"]
+    }
+  );
+
+  assert.deepEqual(
     normalizeSearchDraft(null, {
-      prefixes: ["0900", "0912"],
-      modes: ["all", "pattern", "fee"],
+      prefixes: ["0900", "0912", "all09"],
+      modes: ["all", "pattern", "suffix", "fee"],
       fees: ["480", "1000"],
       pageLimits: ["1", "3", "5"],
       filters: ["f5", "f9"]
@@ -746,6 +801,23 @@ test("search share helpers round-trip a normalized draft through URL payloads", 
   assert.equal(stripSearchShareParam(shareUrl), "/?foo=1");
 
   assert.equal(decodeSearchShare("bad-payload", options), null);
+
+  const suffixOptions = {
+    prefixes: ["0900", "0912", "all09"],
+    modes: ["all", "pattern", "suffix", "fee"],
+    fees: ["480", "1000"],
+    pageLimits: ["1", "3", "5"],
+    filters: ["5", "6", "9"]
+  };
+  const suffixDraft = {
+    prefix: "all09",
+    mode: "suffix",
+    pattern: "1234",
+    fee: "480",
+    pageLimit: "1",
+    filters: ["5"]
+  };
+  assert.deepEqual(decodeSearchShare(encodeSearchShare(suffixDraft, suffixOptions), suffixOptions), suffixDraft);
 });
 
 test("workspace share helpers round-trip both search draft and shortlist rows", () => {

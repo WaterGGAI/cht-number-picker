@@ -3,6 +3,7 @@ const DISPLAY_STORAGE_KEY = "cht-display-mode-v1";
 const SEARCH_DRAFT_STORAGE_KEY = "cht-search-draft-v1";
 const NUMBER_COPY_FORMAT_STORAGE_KEY = "cht-number-copy-format-v1";
 const NUMBER_COPY_DETAIL_STORAGE_KEY = "cht-number-copy-detail-v1";
+const ALL_09_PREFIX = "all09";
 const CATEGORY_ALL_GROUP = "__all";
 
 const DEFAULT_EMPTY_STATE = {
@@ -32,6 +33,7 @@ const state = {
   displayMode: loadDisplayMode(),
   numberCopyFormat: loadNumberCopyFormat(),
   numberCopyDetail: loadNumberCopyDetail(),
+  lastDirectPrefix: "0900",
   categoryRows: [],
   categoryGroups: [],
   activeCategoryGroup: CATEGORY_ALL_GROUP
@@ -49,6 +51,7 @@ const filterList = document.querySelector("#filter-list");
 const filtersWrap = document.querySelector("#filters-wrap");
 const filterSummary = document.querySelector("#filter-summary");
 const patternField = document.querySelector(".pattern-field");
+const patternFieldLabel = patternField?.querySelector("span");
 const feeField = document.querySelector(".fee-field");
 const categoryPanel = document.querySelector("#category-panel");
 const categoryKicker = document.querySelector("#category-kicker");
@@ -117,6 +120,8 @@ const {
   sortRows: sortResultRows,
   buildCategoryGroups,
   normalizePattern,
+  normalizeSuffix,
+  normalizeSearchInput,
   toOfficialPattern,
   normalizeNumberCopyFormat,
   normalizeNumberCopyDetailMode,
@@ -678,8 +683,8 @@ function getFilters() {
 
 function getSearchDraftOptions() {
   return {
-    prefixes: state.config?.prefixes || [],
-    modes: ["all", "pattern", "fee"],
+    prefixes: [...(state.config?.prefixes || []), ALL_09_PREFIX],
+    modes: ["all", "pattern", "suffix", "fee"],
     fees: [...feeInput.options].map((optionNode) => optionNode.value),
     pageLimits: [...pageLimitInput.options].map((optionNode) => optionNode.value),
     filters: state.config?.filters?.map((filter) => filter.value) || []
@@ -688,6 +693,10 @@ function getSearchDraftOptions() {
 
 function getShareSummaryOptions() {
   return {
+    prefixOptions: [
+      ...(state.config?.prefixes || []).map((prefix) => ({ value: prefix, label: prefix })),
+      { value: ALL_09_PREFIX, label: "全部09" }
+    ],
     filterOptions: state.config?.filters || [],
     numberFormat: state.numberCopyFormat,
     detailMode: state.numberCopyDetail
@@ -704,6 +713,9 @@ function persistSearchDraft() {
 function applySearchDraft() {
   if (!state.config) return;
   const draft = normalizeSearchDraft(loadSearchDraft(), getSearchDraftOptions());
+  if (draft.prefix && draft.prefix !== ALL_09_PREFIX) {
+    state.lastDirectPrefix = draft.prefix;
+  }
   prefixInput.value = draft.prefix;
   modeInput.value = draft.mode;
   patternInput.value = draft.pattern;
@@ -986,7 +998,11 @@ async function loadConfig() {
   if (!response.ok) throw new Error("設定載入失敗");
   state.config = await response.json();
 
-  prefixInput.replaceChildren(...state.config.prefixes.map((prefix) => option(prefix)));
+  state.lastDirectPrefix = state.config.prefixes[0] || "0900";
+  prefixInput.replaceChildren(
+    ...state.config.prefixes.map((prefix) => option(prefix)),
+    option(ALL_09_PREFIX, "全部09")
+  );
 
   const chips = state.config.filters.map((filter) => {
     const label = document.createElement("label");
@@ -1010,8 +1026,29 @@ async function loadConfig() {
 
 function syncModeFields() {
   const mode = modeInput.value;
-  patternField.hidden = mode !== "pattern";
+  const isPattern = mode === "pattern";
+  const isSuffix = mode === "suffix";
+  patternField.hidden = !(isPattern || isSuffix);
   feeField.hidden = mode !== "fee";
+
+  if (patternFieldLabel) {
+    patternFieldLabel.textContent = isSuffix ? "尾數反查" : "後六碼";
+  }
+  patternInput.placeholder = isSuffix ? "12 / 1234 / 123456" : "58xx58";
+  patternInput.inputMode = isSuffix ? "numeric" : "text";
+
+  if (isSuffix) {
+    if (prefixInput.value !== ALL_09_PREFIX) {
+      state.lastDirectPrefix = prefixInput.value || state.lastDirectPrefix;
+    }
+    prefixInput.value = ALL_09_PREFIX;
+    prefixInput.disabled = true;
+  } else {
+    prefixInput.disabled = false;
+    if (prefixInput.value === ALL_09_PREFIX) {
+      prefixInput.value = state.lastDirectPrefix || state.config?.prefixes?.[0] || "0900";
+    }
+  }
 }
 
 function updateFilterSummary() {
@@ -1130,10 +1167,11 @@ function syncSourceView() {
 }
 
 function buildPayload() {
+  const mode = modeInput.value;
   return {
     prefix: prefixInput.value,
-    mode: modeInput.value,
-    pattern: toOfficialPattern(patternInput.value),
+    mode,
+    pattern: mode === "suffix" ? normalizeSuffix(patternInput.value) : toOfficialPattern(patternInput.value),
     fee: feeInput.value,
     pageLimit: Number(pageLimitInput.value),
     filters: getFilters()
@@ -1453,7 +1491,7 @@ async function goToSearchBatch(startPage) {
 async function search(event) {
   event.preventDefault();
 
-  patternInput.value = normalizePattern(patternInput.value);
+  patternInput.value = normalizeSearchInput(modeInput.value, patternInput.value);
   const payload = buildPayload();
   submitButton.disabled = true;
   submitButton.textContent = "查詢中";
@@ -1664,7 +1702,12 @@ async function activateQuickLink(id, { force = false } = {}) {
   await fetchCategory(link);
 }
 
-prefixInput.addEventListener("change", persistSearchDraft);
+prefixInput.addEventListener("change", () => {
+  if (prefixInput.value && prefixInput.value !== ALL_09_PREFIX) {
+    state.lastDirectPrefix = prefixInput.value;
+  }
+  persistSearchDraft();
+});
 modeInput.addEventListener("change", () => {
   syncModeFields();
   persistSearchDraft();
@@ -1681,7 +1724,7 @@ filterList.addEventListener("change", () => {
 mobileMedia.addEventListener("change", syncResponsiveLayout);
 patternInput.addEventListener("input", () => {
   const caret = patternInput.selectionStart;
-  patternInput.value = normalizePattern(patternInput.value);
+  patternInput.value = normalizeSearchInput(modeInput.value, patternInput.value);
   patternInput.setSelectionRange(caret, caret);
   persistSearchDraft();
 });

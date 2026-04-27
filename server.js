@@ -316,7 +316,22 @@ async function handleApi(req, res) {
     let pageRows;
     const officialPrefix = `/official/${upstream.store.id}`;
 
-    if (upstream.expandedPattern) {
+    if (upstream.reverseSuffix) {
+      const rows = dedupeRows(
+        upstream.pages.flatMap(({ html }) => parseChtResponse(html).rows)
+      );
+      parsed.rows = attachStatusUrls(rows, officialPrefix);
+      parsed.pagination = { pages: [1], pageCount: 1 };
+      parsed.status = parsed.rows.length ? "ok" : "empty";
+      parsed.message = parsed.rows.length
+        ? `找到 ${parsed.rows.length} 筆門號 · 尾數 ${input.pattern} 已掃 ${upstream.reverseSuffix.prefixes.length} 個前綴`
+        : `沒有找到符合尾數 ${input.pattern} 的空號`;
+      if (upstream.reverseSuffix.forcedFirstPage) {
+        parsed.message += " · 後兩碼先抓每個前綴第 1 頁";
+      }
+      loadedPages = [1];
+      pageRows = { 1: parsed.rows };
+    } else if (upstream.expandedPattern) {
       const rows = dedupeRows(
         upstream.pages.flatMap(({ html }) => parseChtResponse(html).rows)
       );
@@ -355,6 +370,7 @@ async function handleApi(req, res) {
         pagesFetched: upstream.pagesFetched,
         loadedPages,
         pageRows,
+        reverseSuffix: upstream.reverseSuffix,
         expandedPattern: upstream.expandedPattern,
         sessionTtlMinutes: Math.round(SESSION_TTL_MS / 60_000),
         upstreamStatus: upstream.upstreamStatus,
